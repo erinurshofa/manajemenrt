@@ -143,8 +143,7 @@ export const googleSignIn = async (): Promise<{ user: any; accessToken: string }
         try {
           const client = (window as any).google.accounts.oauth2.initTokenClient({
             client_id: customClientId,
-            scope:
-              'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+            scope: 'https://www.googleapis.com/auth/drive.file',
             callback: async (tokenResponse: any) => {
               if (tokenResponse.error) {
                 console.error('Google OAuth Error Response:', tokenResponse);
@@ -164,15 +163,17 @@ export const googleSignIn = async (): Promise<{ user: any; accessToken: string }
               sessionStorage.setItem(GDRIVE_TOKEN_KEY, accessToken);
 
               try {
-                const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                // Ambil info profil menggunakan Google Drive About API (selaras dengan scope drive.file)
+                const aboutRes = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
                   headers: { Authorization: `Bearer ${accessToken}` },
                 });
-                const userData = await userRes.json();
+                const aboutData = await aboutRes.json();
+                const u = aboutData.user;
                 const userObj: any = {
-                  displayName: userData.name || userData.email || 'Pengguna Google',
-                  email: userData.email || '',
-                  photoURL: userData.picture || '',
-                  uid: userData.sub || '',
+                  displayName: u?.displayName || 'Pengguna Google Drive',
+                  email: u?.emailAddress || '',
+                  photoURL: u?.photoLink || '',
+                  uid: u?.permissionId || 'gdrive-user',
                 };
                 currentUserProfile = userObj;
                 sessionStorage.setItem('gasemraya_gdrive_user', JSON.stringify(userObj));
