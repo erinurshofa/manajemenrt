@@ -129,22 +129,34 @@ export const initAuth = (
 
 export const googleSignIn = async (): Promise<{ user: any; accessToken: string }> => {
   const customClientId =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID?.trim()) ||
     firebaseConfig.oAuthClientId;
 
   // 1. Prioritaskan Google Identity Services (GIS) Token Client untuk custom Client ID
-  if (customClientId) {
-    try {
+  if (customClientId && !customClientId.startsWith('your-')) {
+    if (!(window as any).google?.accounts?.oauth2) {
       await loadGsiScript();
-      if ((window as any).google?.accounts?.oauth2) {
-        return await new Promise((resolve, reject) => {
+    }
+
+    if ((window as any).google?.accounts?.oauth2) {
+      return await new Promise((resolve, reject) => {
+        try {
           const client = (window as any).google.accounts.oauth2.initTokenClient({
             client_id: customClientId,
             scope:
               'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
             callback: async (tokenResponse: any) => {
               if (tokenResponse.error) {
-                reject(new Error(tokenResponse.error_description || tokenResponse.error));
+                console.error('Google OAuth Error Response:', tokenResponse);
+                let msg = tokenResponse.error_description || tokenResponse.error;
+                if (tokenResponse.error === 'access_denied') {
+                  msg =
+                    'Akses diblokir (Error 403): Email akun Google Anda belum dimasukkan ke daftar "Test Users" pada Google Cloud Console -> OAuth consent screen.';
+                } else if (tokenResponse.error === 'popup_blocked_by_browser') {
+                  msg =
+                    'Popup Google diblokir oleh peramban. Silakan klik ikon tanda blokir di kanan bilah alamat URL dan pilih "Selalu izinkan pop-up".';
+                }
+                reject(new Error(msg));
                 return;
               }
               const accessToken = tokenResponse.access_token;
@@ -177,18 +189,27 @@ export const googleSignIn = async (): Promise<{ user: any; accessToken: string }
               }
             },
             error_callback: (err: any) => {
-              reject(new Error(err?.message || 'Otorisasi Google Drive dibatalkan'));
+              let msg = err?.message || 'Otorisasi Google Drive dibatalkan atau popup diblokir.';
+              if (err?.type === 'popup_closed') {
+                msg = 'Jendela login Google ditutup sebelum persetujuan selesai.';
+              } else if (err?.type === 'popup_failed_to_open') {
+                msg =
+                  'Peramban memblokir popup login. Harap izinkan pop-up pada bilah alamat browser Anda lalu coba kembali.';
+              }
+              reject(new Error(msg));
             },
           });
           client.requestAccessToken({ prompt: 'consent' });
-        });
-      }
-    } catch (gisErr) {
-      console.warn('GIS Token Client tidak tersedia, beralih ke Firebase:', gisErr);
+        } catch (err: any) {
+          reject(new Error(err?.message || 'Gagal memulai otorisasi Google Identity Services.'));
+        }
+      });
+    } else {
+      throw new Error('Google Sign-In SDK sedang diinisialisasi. Silakan klik tombol "Sign in with Google" sekali lagi.');
     }
   }
 
-  // 2. Fallback ke Firebase Auth
+  // 2. Fallback ke Firebase Auth HANYA jika tidak ada custom Client ID
   try {
     isSigningIn = true;
     const firebaseAuth = getFirebaseAuth();
@@ -205,6 +226,11 @@ export const googleSignIn = async (): Promise<{ user: any; accessToken: string }
     currentUserProfile = result.user;
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
+    if (error?.code === 'auth/popup-blocked') {
+      throw new Error(
+        'Popup login Google diblokir oleh browser. Harap izinkan pop-up (Always allow pop-ups) pada bilah URL browser Anda.'
+      );
+    }
     console.error('Google Sign In Error:', error);
     throw error;
   } finally {
