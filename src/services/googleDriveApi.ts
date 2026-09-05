@@ -208,9 +208,38 @@ export async function deleteDriveFile(fileId: string): Promise<void> {
 }
 
 /**
+ * Dapatkan ID Folder Khusus Google Drive dari .env jika pengguna mengaturnya
+ */
+export const getCustomFolderId = (): string => {
+  return (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_DRIVE_FOLDER_ID?.trim()) || '';
+};
+
+/**
+ * Dapatkan Email Service Account Google Drive dari .env jika pengguna mengaturnya
+ */
+export const getServiceAccountEmail = (): string => {
+  return (
+    (typeof import.meta !== 'undefined' &&
+      (import.meta.env?.VITE_GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() ||
+        import.meta.env?.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim())) ||
+    ''
+  );
+};
+
+/**
  * Get or create "Sistem RT 02 Gasem Raya" default backup folder in user's Google Drive
+ * Jika VITE_GOOGLE_DRIVE_FOLDER_ID diatur pada .env, fungsi langsung menggunakan folder ID tersebut.
  */
 export async function getOrCreateRtFolder(): Promise<DriveFile> {
+  const customFolderId = getCustomFolderId();
+  if (customFolderId) {
+    return {
+      id: customFolderId,
+      name: 'Folder Cadangan RT Gasem (Kustom)',
+      mimeType: 'application/vnd.google-apps.folder',
+    };
+  }
+
   const folderName = 'Sistem RT 02 Gasem Raya';
   const existing = await listDriveFiles({
     query: folderName,

@@ -34,6 +34,8 @@ import {
   uploadCsvToDrive,
   deleteDriveFile,
   getOrCreateRtFolder,
+  getCustomFolderId,
+  getServiceAccountEmail,
 } from '../services/googleDriveApi';
 import {
   initAuth,
@@ -61,6 +63,10 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
   daftarMutasi,
   daftarDokumen,
 }) => {
+  // Drive configuration from .env
+  const configuredFolderId = getCustomFolderId();
+  const configuredServiceEmail = getServiceAccountEmail();
+
   // Auth state
   const [needsAuth, setNeedsAuth] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -418,9 +424,29 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
       <div className="bg-gradient-to-r from-amber-900 via-amber-800 to-stone-900 rounded-2xl p-6 text-white shadow-sm border border-amber-800/40 relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-200 text-xs font-semibold border border-amber-500/30">
-              <Cloud className="w-3.5 h-3.5" />
-              <span>Integrasi Resmi Google Workspace</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-200 text-xs font-semibold border border-amber-500/30">
+                <Cloud className="w-3.5 h-3.5" />
+                <span>Integrasi Resmi Google Workspace</span>
+              </div>
+              {configuredFolderId && (
+                <div
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-200 text-xs font-semibold border border-emerald-500/40"
+                  title={`ID Folder Cadangan: ${configuredFolderId}`}
+                >
+                  <Folder className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>Folder Kustom Aktif</span>
+                </div>
+              )}
+              {configuredServiceEmail && (
+                <div
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-200 text-xs font-semibold border border-blue-500/40"
+                  title={`Email Service Account: ${configuredServiceEmail}`}
+                >
+                  <Users className="w-3.5 h-3.5 text-blue-300" />
+                  <span className="max-w-[200px] truncate">{configuredServiceEmail}</span>
+                </div>
+              )}
             </div>
             <h1 className="text-2xl font-bold text-amber-50">Google Drive RT 02 Gasem Raya</h1>
             <p className="text-amber-200/90 text-sm max-w-2xl">
