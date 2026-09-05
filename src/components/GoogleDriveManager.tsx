@@ -30,6 +30,8 @@ import {
   Grid,
   List,
   ShieldCheck,
+  Copy,
+  FolderInput,
 } from 'lucide-react';
 import {
   DriveFile,
@@ -39,6 +41,8 @@ import {
   uploadJsonToDrive,
   uploadCsvToDrive,
   deleteDriveFile,
+  copyDriveFile,
+  moveDriveFile,
   getOrCreateRtFolder,
   getCustomFolderId,
   setCustomFolderId,
@@ -127,6 +131,15 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
   // Destructive Confirmation Modal
   const [fileToDelete, setFileToDelete] = useState<DriveFile | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Drag & Drop State
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  // Move & Copy State
+  const [fileToMove, setFileToMove] = useState<DriveFile | null>(null);
+  const [targetMoveFolderId, setTargetMoveFolderId] = useState<string>('root');
+  const [isMoving, setIsMoving] = useState(false);
+  const [isCopying, setIsCopying] = useState<string | null>(null);
 
   // Initialize auth listener
   useEffect(() => {
@@ -267,6 +280,86 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
     } finally {
       setIsUploading(false);
       e.target.value = '';
+    }
+  };
+
+  // Drag & Drop Handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      setIsUploading(true);
+      setErrorMessage(null);
+      try {
+        const parent = currentFolderId && currentFolderId !== 'root' ? currentFolderId : undefined;
+        let successCount = 0;
+        for (const file of droppedFiles) {
+          await uploadDriveFile(file, file.name, file.type, parent);
+          successCount++;
+        }
+        setSuccessMessage(`Berhasil mengunggah ${successCount} berkas melalui Drag & Drop ke Google Drive!`);
+        setTimeout(() => setSuccessMessage(null), 4000);
+        loadFiles(currentFolderId);
+      } catch (err: any) {
+        setErrorMessage(err.message || 'Gagal mengunggah berkas via Drag & Drop.');
+      } finally {
+        setIsUploading(false);
+      }
+    }
+  };
+
+  // Copy File Handler
+  const handleCopyFile = async (file: DriveFile) => {
+    setIsCopying(file.id);
+    setErrorMessage(null);
+    try {
+      const parent = currentFolderId && currentFolderId !== 'root' ? currentFolderId : undefined;
+      const copyName = file.name.includes('.')
+        ? file.name.replace(/(\.[^.]+)$/, ' (Salinan)$1')
+        : `${file.name} (Salinan)`;
+      await copyDriveFile(file.id, copyName, parent);
+      setSuccessMessage(`Berkas "${file.name}" berhasil disalin!`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+      loadFiles(currentFolderId);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Gagal menyalin berkas.');
+    } finally {
+      setIsCopying(null);
+    }
+  };
+
+  // Move File Handler
+  const handleConfirmMove = async () => {
+    if (!fileToMove) return;
+    setIsMoving(true);
+    setErrorMessage(null);
+    try {
+      const oldParent = currentFolderId && currentFolderId !== 'root' ? currentFolderId : undefined;
+      const newParent = targetMoveFolderId;
+      await moveDriveFile(fileToMove.id, newParent, oldParent);
+      setSuccessMessage(`Berkas "${fileToMove.name}" berhasil dipindahkan!`);
+      setTimeout(() => setSuccessMessage(null), 3000);
+      setFileToMove(null);
+      loadFiles(currentFolderId);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Gagal memindahkan berkas.');
+    } finally {
+      setIsMoving(false);
     }
   };
 
@@ -829,6 +922,58 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
             </button>
           </div>
 
+          {/* Drag & Drop Upload Zone */}
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`rounded-2xl border-2 border-dashed p-6 text-center transition-all ${
+              isDragOver
+                ? 'border-amber-600 bg-amber-50/90 scale-[1.01] shadow-md'
+                : 'border-stone-300 hover:border-amber-500/70 bg-stone-50/60 hover:bg-stone-50/90'
+            }`}
+          >
+            <input
+              type="file"
+              multiple
+              id="drag-drop-input"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <label
+              htmlFor="drag-drop-input"
+              className="cursor-pointer flex flex-col items-center justify-center gap-2"
+            >
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                  isDragOver
+                    ? 'bg-amber-700 text-white animate-bounce'
+                    : 'bg-amber-100 text-amber-800'
+                }`}
+              >
+                <UploadCloud className="w-6 h-6" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold text-stone-800">
+                  {isDragOver
+                    ? 'Lepaskan Berkas di Sini untuk Mengunggah Langsung!'
+                    : 'Tarik & Letakkan (Drag and Drop) Berkas ke Sini'}
+                </p>
+                <p className="text-xs text-stone-500">
+                  Mendukung banyak file sekaligus, atau{' '}
+                  <span className="text-amber-700 font-semibold underline">
+                    klik untuk pilih dari komputer / HP
+                  </span>
+                </p>
+              </div>
+              {isUploading && (
+                <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-amber-800 bg-amber-100/90 px-3 py-1 rounded-full">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Sedang mengunggah berkas...
+                </div>
+              )}
+            </label>
+          </div>
+
           {/* Browser Container */}
           <div className="bg-white rounded-2xl border border-stone-200 shadow-2xs overflow-hidden">
             {/* Top Toolbar */}
@@ -954,6 +1099,30 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
 
                             {/* Actions */}
                             <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                              {/* Copy Button (hanya berkas) */}
+                              {!isFolder && (
+                                <button
+                                  onClick={() => handleCopyFile(file)}
+                                  disabled={isCopying === file.id}
+                                  className="p-1.5 text-stone-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Salin / Duplikasi Berkas"
+                                >
+                                  <Copy className={`w-3.5 h-3.5 ${isCopying === file.id ? 'animate-spin' : ''}`} />
+                                </button>
+                              )}
+
+                              {/* Move Button */}
+                              <button
+                                onClick={() => {
+                                  setFileToMove(file);
+                                  setTargetMoveFolderId(currentFolderId && currentFolderId !== 'root' ? currentFolderId : 'root');
+                                }}
+                                className="p-1.5 text-stone-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                title="Pindahkan Berkas/Folder ke Folder Lain"
+                              >
+                                <FolderInput className="w-3.5 h-3.5" />
+                              </button>
+
                               {file.webViewLink && (
                                 <a
                                   href={file.webViewLink}
@@ -1182,6 +1351,75 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isDeleting ? 'Menghapus...' : 'Ya, Hapus Permanen'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move File Modal */}
+      {fileToMove && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-blue-200 space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2 text-blue-900">
+                <FolderInput className="w-5 h-5 text-blue-700" />
+                <h3 className="font-bold text-sm">Pindahkan Berkas / Folder</h3>
+              </div>
+              <button
+                onClick={() => setFileToMove(null)}
+                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-1 text-xs text-stone-600">
+              <p>Pilih folder tujuan untuk:</p>
+              <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200 font-semibold text-stone-900 truncate flex items-center gap-2">
+                <span>📁</span>
+                <span className="truncate">{fileToMove.name}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-stone-700 block">Pilih Folder Tujuan:</label>
+              <select
+                value={targetMoveFolderId}
+                onChange={e => setTargetMoveFolderId(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none bg-white"
+              >
+                <option value="root">📂 Folder Utama (Google Drive Saya / Root)</option>
+                {configuredFolderId && (
+                  <option value={configuredFolderId}>📂 Folder Khusus RT Gasem (Kustom)</option>
+                )}
+                {files
+                  .filter(f => f.mimeType === 'application/vnd.google-apps.folder' && f.id !== fileToMove.id)
+                  .map(f => (
+                    <option key={f.id} value={f.id}>
+                      📁 {f.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={() => setFileToMove(null)}
+                disabled={isMoving}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-700 bg-stone-100 hover:bg-stone-200 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmMove}
+                disabled={isMoving}
+                className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <FolderInput className="w-3.5 h-3.5" />
+                <span>{isMoving ? 'Memindahkan...' : 'Pindahkan Sekarang'}</span>
               </button>
             </div>
           </div>

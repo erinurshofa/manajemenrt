@@ -208,6 +208,70 @@ export async function deleteDriveFile(fileId: string): Promise<void> {
 }
 
 /**
+ * Copy a file on Google Drive
+ */
+export async function copyDriveFile(
+  fileId: string,
+  newName?: string,
+  targetFolderId?: string
+): Promise<DriveFile> {
+  const headers = await getAuthHeader();
+  const bodyPayload: { name?: string; parents?: string[] } = {};
+  if (newName) bodyPayload.name = newName;
+  if (targetFolderId) bodyPayload.parents = [targetFolderId];
+
+  const res = await fetch(
+    `${DRIVE_API_BASE}/files/${fileId}/copy?fields=id,name,mimeType,size,webViewLink,webContentLink,modifiedTime`,
+    {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(bodyPayload),
+    }
+  );
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData?.error?.message || `Gagal menyalin file: status ${res.status}`);
+  }
+
+  return await res.json();
+}
+
+/**
+ * Move a file or folder on Google Drive
+ */
+export async function moveDriveFile(
+  fileId: string,
+  newParentId: string,
+  oldParentId?: string
+): Promise<DriveFile> {
+  const headers = await getAuthHeader();
+  const params = new URLSearchParams();
+  if (newParentId && newParentId !== 'root') {
+    params.append('addParents', newParentId);
+  }
+  if (oldParentId && oldParentId !== 'root') {
+    params.append('removeParents', oldParentId);
+  }
+  params.append('fields', 'id,name,parents,modifiedTime');
+
+  const res = await fetch(`${DRIVE_API_BASE}/files/${fileId}?${params.toString()}`, {
+    method: 'PATCH',
+    headers,
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData?.error?.message || `Gagal memindahkan file: status ${res.status}`);
+  }
+
+  return await res.json();
+}
+
+/**
  * Ekstrak Folder ID jika pengguna menempelkan link lengkap Google Drive
  */
 export const extractDriveFolderId = (input: string): string => {
