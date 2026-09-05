@@ -57,34 +57,138 @@ let cachedAccessToken: string | null =
   typeof window !== 'undefined' ? sessionStorage.getItem(GDRIVE_TOKEN_KEY) : null;
 let currentUserProfile: User | null = null;
 
+function loadGsiScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') return resolve();
+    if ((window as any).google?.accounts?.oauth2) return resolve();
+    const existing = document.getElementById('google-gsi-client');
+    if (existing) {
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error('Gagal memuat Google Sign-In SDK')));
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'google-gsi-client';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Gagal memuat Google Sign-In SDK'));
+    document.head.appendChild(script);
+  });
+}
+
 export const initAuth = (
-  onAuthSuccess?: (user: User, token: string) => void,
+  onAuthSuccess?: (user: any, token: string) => void,
   onAuthFailure?: () => void
 ) => {
-  const firebaseAuth = getFirebaseAuth();
-  return onAuthStateChanged(firebaseAuth, async (user: User | null) => {
-    currentUserProfile = user;
-    if (user) {
-      if (!cachedAccessToken && typeof window !== 'undefined') {
-        cachedAccessToken = sessionStorage.getItem(GDRIVE_TOKEN_KEY);
-      }
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        // Token belum ada di sesi tab, panggil failure agar komponen menampilkan tombol Masuk
+  if (!cachedAccessToken && typeof window !== 'undefined') {
+    cachedAccessToken = sessionStorage.getItem(GDRIVE_TOKEN_KEY);
+  }
+  if (!currentUserProfile && typeof window !== 'undefined') {
+    const saved = sessionStorage.getItem('gasemraya_gdrive_user');
+    if (saved) {
+      try {
+        currentUserProfile = JSON.parse(saved);
+      } catch (e) {}
+    }
+  }
+
+  if (cachedAccessToken && currentUserProfile) {
+    if (onAuthSuccess) onAuthSuccess(currentUserProfile, cachedAccessToken);
+    return () => {};
+  }
+
+  try {
+    const firebaseAuth = getFirebaseAuth();
+    return onAuthStateChanged(firebaseAuth, async (user: User | null) => {
+      currentUserProfile = user;
+      if (user) {
+        if (!cachedAccessToken && typeof window !== 'undefined') {
+          cachedAccessToken = sessionStorage.getItem(GDRIVE_TOKEN_KEY);
+        }
+        if (cachedAccessToken) {
+          if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
+        } else if (!isSigningIn) {
+          if (onAuthFailure) onAuthFailure();
+        }
+      } else {
+        cachedAccessToken = null;
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem(GDRIVE_TOKEN_KEY);
+          sessionStorage.removeItem('gasemraya_gdrive_user');
+        }
         if (onAuthFailure) onAuthFailure();
       }
-    } else {
-      cachedAccessToken = null;
-      if (typeof window !== 'undefined') {
-        sessionStorage.removeItem(GDRIVE_TOKEN_KEY);
-      }
-      if (onAuthFailure) onAuthFailure();
-    }
-  });
+    });
+  } catch {
+    if (onAuthFailure) onAuthFailure();
+    return () => {};
+  }
 };
 
-export const googleSignIn = async (): Promise<{ user: User; accessToken: string }> => {
+export const googleSignIn = async (): Promise<{ user: any; accessToken: string }> => {
+  const customClientId =
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) ||
+    firebaseConfig.oAuthClientId;
+
+  // 1. Prioritaskan Google Identity Services (GIS) Token Client untuk custom Client ID
+  if (customClientId) {
+    try {
+      await loadGsiScript();
+      if ((window as any).google?.accounts?.oauth2) {
+        return await new Promise((resolve, reject) => {
+          const client = (window as any).google.accounts.oauth2.initTokenClient({
+            client_id: customClientId,
+            scope:
+              'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+            callback: async (tokenResponse: any) => {
+              if (tokenResponse.error) {
+                reject(new Error(tokenResponse.error_description || tokenResponse.error));
+                return;
+              }
+              const accessToken = tokenResponse.access_token;
+              cachedAccessToken = accessToken;
+              sessionStorage.setItem(GDRIVE_TOKEN_KEY, accessToken);
+
+              try {
+                const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                  headers: { Authorization: `Bearer ${accessToken}` },
+                });
+                const userData = await userRes.json();
+                const userObj: any = {
+                  displayName: userData.name || userData.email || 'Pengguna Google',
+                  email: userData.email || '',
+                  photoURL: userData.picture || '',
+                  uid: userData.sub || '',
+                };
+                currentUserProfile = userObj;
+                sessionStorage.setItem('gasemraya_gdrive_user', JSON.stringify(userObj));
+                resolve({ user: userObj, accessToken });
+              } catch {
+                const fallbackUser: any = {
+                  displayName: 'Pengguna Google Drive',
+                  email: '',
+                  photoURL: '',
+                  uid: 'gdrive-user',
+                };
+                currentUserProfile = fallbackUser;
+                resolve({ user: fallbackUser, accessToken });
+              }
+            },
+            error_callback: (err: any) => {
+              reject(new Error(err?.message || 'Otorisasi Google Drive dibatalkan'));
+            },
+          });
+          client.requestAccessToken({ prompt: 'consent' });
+        });
+      }
+    } catch (gisErr) {
+      console.warn('GIS Token Client tidak tersedia, beralih ke Firebase:', gisErr);
+    }
+  }
+
+  // 2. Fallback ke Firebase Auth
   try {
     isSigningIn = true;
     const firebaseAuth = getFirebaseAuth();
@@ -115,17 +219,25 @@ export const getAccessToken = async (): Promise<string | null> => {
   return cachedAccessToken;
 };
 
-export const getCurrentGoogleUser = (): User | null => {
+export const getCurrentGoogleUser = (): any | null => {
   return currentUserProfile || (authInstance ? authInstance.currentUser : null);
 };
 
 export const logoutGoogle = async () => {
   if (authInstance) {
-    await signOut(authInstance);
+    try {
+      await signOut(authInstance);
+    } catch {}
+  }
+  if (cachedAccessToken && (window as any).google?.accounts?.oauth2?.revoke) {
+    try {
+      (window as any).google.accounts.oauth2.revoke(cachedAccessToken, () => {});
+    } catch {}
   }
   cachedAccessToken = null;
   if (typeof window !== 'undefined') {
     sessionStorage.removeItem(GDRIVE_TOKEN_KEY);
+    sessionStorage.removeItem('gasemraya_gdrive_user');
   }
   currentUserProfile = null;
 };
