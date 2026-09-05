@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Sidebar, TabId } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
 import { DashboardStats } from './components/DashboardStats';
@@ -191,6 +191,29 @@ export default function App() {
   const [supabaseErrorMessage, setSupabaseErrorMessage] = useState<string | undefined>();
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
 
+  // Reference to always access current data state without causing unnecessary re-fetches
+  const currentDataRef = useRef({
+    profilRt,
+    daftarWarga,
+    daftarMutasi,
+    daftarKas,
+    daftarDokumen,
+    daftarPengurus,
+    credentials,
+  });
+
+  useEffect(() => {
+    currentDataRef.current = {
+      profilRt,
+      daftarWarga,
+      daftarMutasi,
+      daftarKas,
+      daftarDokumen,
+      daftarPengurus,
+      credentials,
+    };
+  }, [profilRt, daftarWarga, daftarMutasi, daftarKas, daftarDokumen, daftarPengurus, credentials]);
+
   // Supabase connection, offline queue flush & initial sync (HANYA setelah pengguna login)
   const refreshSupabaseConnection = useCallback(async () => {
     if (!isLocalDbLoaded || !currentUser) return; // Cegah koneksi dan sync jika belum login
@@ -205,43 +228,78 @@ export default function App() {
         // 1. Kirim antrean offline terlebih dahulu agar data lokal offline tidak tertimpa!
         await flushOfflineSyncQueue();
 
+        const latest = currentDataRef.current;
+
         // 2. Seed data awal jika database di cloud masih benar-benar kosong
         await seedInitialDataToSupabase({
-          profilRt,
-          daftarWarga,
-          daftarMutasi,
-          daftarKas,
-          daftarDokumen,
-          daftarPengurus,
-          credentials,
+          profilRt: latest.profilRt,
+          daftarWarga: latest.daftarWarga,
+          daftarMutasi: latest.daftarMutasi,
+          daftarKas: latest.daftarKas,
+          daftarDokumen: latest.daftarDokumen,
+          daftarPengurus: latest.daftarPengurus,
+          credentials: latest.credentials,
         });
 
         // 3. Tarik data terbaru yang sudah sinkron dari Supabase Cloud
         const cloudData = await fetchAllFromSupabase({
-          profilRt,
-          daftarWarga,
-          daftarMutasi,
-          daftarKas,
-          daftarDokumen,
-          daftarPengurus,
-          credentials,
+          profilRt: latest.profilRt,
+          daftarWarga: latest.daftarWarga,
+          daftarMutasi: latest.daftarMutasi,
+          daftarKas: latest.daftarKas,
+          daftarDokumen: latest.daftarDokumen,
+          daftarPengurus: latest.daftarPengurus,
+          credentials: latest.credentials,
         });
 
         if (cloudData) {
-          if (cloudData.daftarWarga) setDaftarWarga(cloudData.daftarWarga);
-          if (cloudData.daftarMutasi) setDaftarMutasi(cloudData.daftarMutasi);
-          if (cloudData.daftarKas) setDaftarKas(cloudData.daftarKas);
-          if (cloudData.daftarDokumen) setDaftarDokumen(cloudData.daftarDokumen);
-          if (cloudData.daftarPengurus) setDaftarPengurus(cloudData.daftarPengurus);
+          // Merge data dengan proteksi: data lokal yang belum tersinkron ke cloud TIDAK BOLEH hilang
+          if (cloudData.daftarWarga && cloudData.daftarWarga.length > 0) {
+            setDaftarWarga(prev => {
+              const cloudIds = new Set(cloudData.daftarWarga.map(w => w.id));
+              const localPending = prev.filter(w => !cloudIds.has(w.id));
+              return [...cloudData.daftarWarga, ...localPending];
+            });
+          }
+          if (cloudData.daftarMutasi && cloudData.daftarMutasi.length > 0) {
+            setDaftarMutasi(prev => {
+              const cloudIds = new Set(cloudData.daftarMutasi.map(m => m.id));
+              const localPending = prev.filter(m => !cloudIds.has(m.id));
+              return [...cloudData.daftarMutasi, ...localPending];
+            });
+          }
+          if (cloudData.daftarKas && cloudData.daftarKas.length > 0) {
+            setDaftarKas(prev => {
+              const cloudIds = new Set(cloudData.daftarKas.map(k => k.id));
+              const localPending = prev.filter(k => !cloudIds.has(k.id));
+              return [...cloudData.daftarKas, ...localPending];
+            });
+          }
+          if (cloudData.daftarDokumen && cloudData.daftarDokumen.length > 0) {
+            setDaftarDokumen(prev => {
+              const cloudIds = new Set(cloudData.daftarDokumen.map(d => d.id));
+              const localPending = prev.filter(d => !cloudIds.has(d.id));
+              return [...cloudData.daftarDokumen, ...localPending];
+            });
+          }
+          if (cloudData.daftarPengurus && cloudData.daftarPengurus.length > 0) {
+            setDaftarPengurus(prev => {
+              const cloudIds = new Set(cloudData.daftarPengurus.map(p => p.id));
+              const localPending = prev.filter(p => !cloudIds.has(p.id));
+              return [...cloudData.daftarPengurus, ...localPending];
+            });
+          }
           if (cloudData.profilRt) setProfilRt(cloudData.profilRt);
-          if (cloudData.credentials) setCredentials(cloudData.credentials);
+          if (cloudData.credentials && cloudData.credentials.length > 0) {
+            setCredentials(cloudData.credentials);
+          }
         }
       }
     } catch (err: any) {
       console.error('Error during Supabase connection check/sync:', err);
       setSupabaseErrorMessage(err?.message || 'Gagal tersambung ke Supabase');
     }
-  }, [isLocalDbLoaded, currentUser, profilRt, daftarWarga, daftarMutasi, daftarKas, daftarDokumen, daftarPengurus, credentials]);
+  }, [isLocalDbLoaded, currentUser]);
 
   // Jalankan sinkronisasi cloud HANYA setelah IndexedDB lokal selesai dimuat DAN pengguna sudah login
   useEffect(() => {
@@ -352,15 +410,15 @@ export default function App() {
     setModalFormOpen(true);
   };
 
-  const handleHapusWarga = (id: string, nama: string) => {
+  const handleHapusWarga = async (id: string, nama: string) => {
     if (confirm(`Apakah Anda yakin ingin menghapus data warga "${nama}"?`)) {
       setDaftarWarga(prev => prev.filter(w => w.id !== id));
       setDaftarMutasi(prev => prev.filter(m => m.wargaId !== id));
-      syncWargaDelete(id);
+      await syncWargaDelete(id);
     }
   };
 
-  const handleSaveWarga = (
+  const handleSaveWarga = async (
     warga: Warga,
     catatMutasi?: { jenis: 'Lahir' | 'Pindah_Masuk'; tanggal: string; keterangan: string }
   ) => {
@@ -372,7 +430,7 @@ export default function App() {
         return [warga, ...prev];
       }
     });
-    syncWargaUpsert(warga);
+    await syncWargaUpsert(warga);
 
     if (catatMutasi) {
       const mutasiBaru: MutasiRecord = {
@@ -387,7 +445,7 @@ export default function App() {
         keterangan: catatMutasi.keterangan,
       };
       setDaftarMutasi(prev => [mutasiBaru, ...prev]);
-      syncMutasiUpsert(mutasiBaru);
+      await syncMutasiUpsert(mutasiBaru);
     }
   };
 

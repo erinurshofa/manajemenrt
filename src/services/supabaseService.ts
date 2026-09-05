@@ -282,12 +282,12 @@ export const fetchAllFromSupabase = async (fallback: {
 
     return {
       profilRt: profilRows && profilRows.length > 0 ? mapDbToProfil(profilRows[0], fallback.profilRt) : fallback.profilRt,
-      daftarWarga: wargaRows ? wargaRows.map(mapDbToWarga) : fallback.daftarWarga,
-      daftarMutasi: mutasiRows ? mutasiRows.map(mapDbToMutasi) : fallback.daftarMutasi,
-      daftarKas: kasRows ? kasRows.map(mapDbToKas) : fallback.daftarKas,
-      daftarDokumen: dokumenRows ? dokumenRows.map(mapDbToDokumen) : fallback.daftarDokumen,
-      daftarPengurus: pengurusRows ? pengurusRows.map(mapDbToPengurus) : fallback.daftarPengurus,
-      credentials: credRows ? credRows.map((c: any) => ({
+      daftarWarga: wargaRows && wargaRows.length > 0 ? wargaRows.map(mapDbToWarga) : fallback.daftarWarga,
+      daftarMutasi: mutasiRows && mutasiRows.length > 0 ? mutasiRows.map(mapDbToMutasi) : fallback.daftarMutasi,
+      daftarKas: kasRows && kasRows.length > 0 ? kasRows.map(mapDbToKas) : fallback.daftarKas,
+      daftarDokumen: dokumenRows && dokumenRows.length > 0 ? dokumenRows.map(mapDbToDokumen) : fallback.daftarDokumen,
+      daftarPengurus: pengurusRows && pengurusRows.length > 0 ? pengurusRows.map(mapDbToPengurus) : fallback.daftarPengurus,
+      credentials: credRows && credRows.length > 0 ? credRows.map((c: any) => ({
         nik: c.nik,
         password: c.password,
         nama: c.nama,

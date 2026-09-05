@@ -6,8 +6,11 @@
 import { ProfilRt } from '../types';
 
 export const getGeminiApiKey = (): string => {
-  // Disembunyikan sepenuhnya dari client bundle; ditangani aman oleh server-side proxy
-  return '';
+  return (
+    (typeof import.meta !== 'undefined' &&
+      (import.meta.env?.GEMINI_API_KEY?.trim() || import.meta.env?.VITE_GEMINI_API_KEY?.trim())) ||
+    ''
+  );
 };
 
 export const isGeminiConfigured = (): boolean => {
@@ -29,7 +32,7 @@ export interface AssistantContext {
 }
 
 /**
- * Kirim pertanyaan ke Gemini via proxy backend aman (/api/gemini)
+ * Kirim pertanyaan ke Gemini via proxy backend aman (/api/gemini) dengan fallback langsung
  */
 export async function askGeminiAssistant(
   prompt: string,
@@ -62,6 +65,14 @@ Tugas Anda:
     },
   ];
 
+  const generationConfig = {
+    temperature: 0.7,
+    maxOutputTokens: 1000,
+  };
+
+  let proxyErrorMessage = '';
+
+  // 1. Coba lewat proxy backend (/api/gemini)
   try {
     const response = await fetch('/api/gemini', {
       method: 'POST',
@@ -71,28 +82,68 @@ Tugas Anda:
       body: JSON.stringify({
         model: 'gemini-2.5-flash',
         contents,
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1000,
-        },
+        generationConfig,
       }),
     });
 
-    const data = await response.json();
-
-    if (data.error) {
-      console.warn('Gemini Proxy Error:', data.error);
-      throw new Error(data.error.message || 'Gagal memproses respons dari Gemini AI.');
+    const contentType = response.headers.get('content-type') || '';
+    if (response.ok && contentType.includes('application/json')) {
+      const data = await response.json();
+      if (!data.error) {
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (reply) return reply.trim();
+      } else {
+        console.warn('Gemini Proxy Warning:', data.error);
+        proxyErrorMessage = data.error?.message || '';
+      }
+    } else {
+      console.warn(`Proxy /api/gemini tidak mengembalikan JSON valid (status ${response.status}). Mencoba fallback langsung...`);
     }
-
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!reply) {
-      throw new Error('Tidak ada respons teks yang dihasilkan.');
-    }
-
-    return reply.trim();
-  } catch (err: any) {
-    console.error('Error saat menghubungi Asisten AI:', err);
-    throw new Error(err?.message || 'Gagal tersambung ke layanan Gemini AI. Pastikan server Vite aktif.');
+  } catch (proxyErr: any) {
+    console.warn('Proxy /api/gemini tidak dapat dihubungi:', proxyErr?.message);
+    proxyErrorMessage = proxyErr?.message || '';
   }
+
+  // 2. Fallback: Panggilan langsung Google Gemini API dari browser jika API Key tersedia
+  const clientApiKey = getGeminiApiKey();
+  if (clientApiKey) {
+    try {
+      let targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${clientApiKey}`;
+      let directRes = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents, generationConfig }),
+      });
+
+      let directData: any = await directRes.json();
+
+      // Fallback otomatis jika model 2.5 belum aktif ke model flash-latest
+      if (directRes.status === 404 || directData.error?.message?.includes('not found')) {
+        targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${clientApiKey}`;
+        directRes = await fetch(targetUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents, generationConfig }),
+        });
+        directData = await directRes.json();
+      }
+
+      if (directData.candidates?.[0]?.content?.parts?.[0]?.text) {
+        return directData.candidates[0].content.parts[0].text.trim();
+      }
+
+      if (directData.error?.message) {
+        throw new Error(directData.error.message);
+      }
+    } catch (directErr: any) {
+      console.error('Error saat menghubungi Google Gemini API secara langsung:', directErr);
+      throw new Error(directErr?.message || 'Gagal tersambung ke Google Gemini API.');
+    }
+  }
+
+  // Jika proxy gagal dan tidak ada direct key
+  throw new Error(
+    proxyErrorMessage ||
+      'Layanan Gemini AI tidak dapat diakses. Jika dihosting di Vercel, pastikan GEMINI_API_KEY telah diatur di Settings > Environment Variables Vercel.'
+  );
 }

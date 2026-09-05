@@ -54,7 +54,8 @@ function geminiProxyPlugin(apiKey: string): Plugin {
     name: 'gemini-proxy-plugin',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        if (req.url === '/api/gemini') {
+        const pathname = req.url?.split('?')[0];
+        if (pathname === '/api/gemini') {
           handler(req, res);
         } else {
           next();
@@ -63,7 +64,8 @@ function geminiProxyPlugin(apiKey: string): Plugin {
     },
     configurePreviewServer(server) {
       server.middlewares.use((req, res, next) => {
-        if (req.url === '/api/gemini') {
+        const pathname = req.url?.split('?')[0];
+        if (pathname === '/api/gemini') {
           handler(req, res);
         } else {
           next();
@@ -180,6 +182,12 @@ export default defineConfig(({ mode }) => {
       ),
       'import.meta.env.VITE_APP_URL': JSON.stringify(
         env.APP_URL || env.VITE_APP_URL || process.env.APP_URL || ''
+      ),
+      'import.meta.env.GEMINI_API_KEY': JSON.stringify(
+        env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || ''
+      ),
+      'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(
+        env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || ''
       ),
     },
   };
