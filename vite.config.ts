@@ -18,15 +18,27 @@ function geminiProxyPlugin(apiKey: string): Plugin {
           res.end(JSON.stringify({ error: { message: 'GEMINI_API_KEY tidak dikonfigurasi di server (.env)' } }));
           return;
         }
-        const { contents, generationConfig, model = 'gemini-1.5-flash' } = JSON.parse(body || '{}');
-        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const { contents, generationConfig, model = 'gemini-2.5-flash' } = JSON.parse(body || '{}');
+        let targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-        const apiRes = await fetch(targetUrl, {
+        let apiRes = await fetch(targetUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents, generationConfig }),
         });
-        const data = await apiRes.json();
+        let data = await apiRes.json();
+
+        // Fallback otomatis ke gemini-flash-latest jika model spesifik belum aktif/limit
+        if (apiRes.status === 404 || data.error?.message?.includes('not found')) {
+          targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
+          apiRes = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents, generationConfig }),
+          });
+          data = await apiRes.json();
+        }
+
         res.statusCode = apiRes.status;
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify(data));
