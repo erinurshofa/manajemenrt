@@ -25,6 +25,11 @@ import {
   Users,
   LogOut,
   Info,
+  Globe,
+  Settings,
+  Grid,
+  List,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   DriveFile,
@@ -36,6 +41,8 @@ import {
   deleteDriveFile,
   getOrCreateRtFolder,
   getCustomFolderId,
+  setCustomFolderId,
+  extractDriveFolderId,
   getServiceAccountEmail,
 } from '../services/googleDriveApi';
 import {
@@ -64,9 +71,28 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
   daftarMutasi,
   daftarDokumen,
 }) => {
-  // Drive configuration from .env
+  // Drive configuration from .env / localStorage
   const configuredFolderId = getCustomFolderId();
   const configuredServiceEmail = getServiceAccountEmail();
+
+  // Tab Mode: 'public' (Bebas Akses Tanpa Sign-In) vs 'manage' (Kelola & Cadangkan Data)
+  const [activeDriveTab, setActiveDriveTab] = useState<'public' | 'manage'>('public');
+
+  // Public Folder Configuration
+  const [publicFolderId, setPublicFolderId] = useState<string>(getCustomFolderId());
+  const [tempFolderInput, setTempFolderInput] = useState<string>(getCustomFolderId());
+  const [publicViewMode, setPublicViewMode] = useState<'grid' | 'list'>('grid');
+  const [isFolderSettingsOpen, setIsFolderSettingsOpen] = useState<boolean>(false);
+
+  const handleSavePublicFolderId = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = extractDriveFolderId(tempFolderInput);
+    setCustomFolderId(cleanId);
+    setPublicFolderId(cleanId);
+    setIsFolderSettingsOpen(false);
+    setSuccessMessage(cleanId ? 'ID Folder Google Drive berhasil disimpan!' : 'Pengaturan folder dikosongkan.');
+    setTimeout(() => setSuccessMessage(null), 3500);
+  };
 
   // Auth state
   const [needsAuth, setNeedsAuth] = useState(true);
@@ -513,8 +539,168 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
         </div>
       )}
 
-      {/* When Not Logged In: Official Sign In with Google Card */}
-      {needsAuth ? (
+      {/* Tab Switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-3">
+        <div className="flex items-center gap-2 p-1 bg-stone-100/90 rounded-xl border border-stone-200/80">
+          <button
+            onClick={() => setActiveDriveTab('public')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+              activeDriveTab === 'public'
+                ? 'bg-amber-800 text-white shadow-xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+            }`}
+          >
+            <Globe className="w-4 h-4" />
+            <span>Folder Berkas RT (Tanpa Sign-In)</span>
+          </button>
+          <button
+            onClick={() => setActiveDriveTab('manage')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+              activeDriveTab === 'manage'
+                ? 'bg-amber-800 text-white shadow-xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+            }`}
+          >
+            <HardDrive className="w-4 h-4" />
+            <span>Kelola & Cadangkan Data (Pengurus)</span>
+            {!needsAuth && <span className="w-2 h-2 rounded-full bg-emerald-400" title="Akun Terhubung" />}
+          </button>
+        </div>
+
+        {activeDriveTab === 'public' && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsFolderSettingsOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-300 bg-white hover:bg-stone-50 text-xs font-semibold text-stone-700 shadow-2xs transition-colors cursor-pointer"
+              title="Atur Link / ID Folder Google Drive"
+            >
+              <Settings className="w-3.5 h-3.5 text-amber-700" />
+              <span>Atur Folder</span>
+            </button>
+            {publicFolderId && (
+              <a
+                href={`https://drive.google.com/drive/folders/${publicFolderId}?usp=sharing`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Buka di Google Drive</span>
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 1. TAMPILAN FOLDER PUBLIK (LANGSUNG TANPA SIGN-IN) */}
+      {activeDriveTab === 'public' && (
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-xl border border-stone-200 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-amber-50 rounded-lg text-amber-800 border border-amber-200">
+                <Folder className="w-5 h-5 text-amber-700" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                  <span>Folder Berkas & Dokumen Terbuka RT 02</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300">
+                    Bebas Akses Tanpa Sign-In
+                  </span>
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Warga & pengurus dapat langsung membuka, melihat pratinjau, dan mendownload berkas di sini.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center p-1 bg-stone-100 rounded-lg border border-stone-200 text-xs font-medium">
+                <button
+                  onClick={() => setPublicViewMode('grid')}
+                  className={`px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer transition-colors ${
+                    publicViewMode === 'grid' ? 'bg-white text-stone-900 font-semibold shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+                  }`}
+                  title="Tampilan Kotak"
+                >
+                  <Grid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Grid</span>
+                </button>
+                <button
+                  onClick={() => setPublicViewMode('list')}
+                  className={`px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer transition-colors ${
+                    publicViewMode === 'list' ? 'bg-white text-stone-900 font-semibold shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+                  }`}
+                  title="Tampilan Daftar"
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">List</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {publicFolderId ? (
+            <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm flex flex-col">
+              <div className="bg-stone-50/90 px-4 py-2 border-b border-stone-200 flex items-center justify-between text-xs text-stone-500">
+                <span className="font-mono text-[11px] truncate max-w-md">
+                  ID Folder: <span className="text-stone-700 font-semibold">{publicFolderId}</span>
+                </span>
+                <span className="text-emerald-700 font-medium flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5" /> Siap Diakses Langsung
+                </span>
+              </div>
+              <div className="relative w-full h-[650px] bg-stone-100">
+                <iframe
+                  src={`https://drive.google.com/embeddedfolderview?id=${publicFolderId}#${publicViewMode}`}
+                  title="Google Drive Folder RT Gasem Raya 02"
+                  className="w-full h-full border-0"
+                  allow="autoplay"
+                />
+              </div>
+              <div className="p-3 bg-amber-50/70 border-t border-amber-200/60 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5">
+                  <Info className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span>
+                    Jika berkas tidak muncul di dalam frame, pastikan akses folder di Google Drive disetel: <b>"Siapa saja yang memiliki link"</b> &rarr; <b>Pelihat</b>.
+                  </span>
+                </span>
+                <a
+                  href={`https://drive.google.com/drive/folders/${publicFolderId}?usp=sharing`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-800 hover:text-amber-950 font-semibold underline shrink-0 inline-flex items-center gap-1"
+                >
+                  Buka Folder di Tab Baru <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border-2 border-dashed border-amber-200 p-8 text-center space-y-4 shadow-2xs">
+              <div className="w-14 h-14 bg-amber-50 rounded-2xl border border-amber-200 flex items-center justify-center mx-auto text-amber-700">
+                <Folder className="w-7 h-7" />
+              </div>
+              <div className="max-w-md mx-auto space-y-1">
+                <h3 className="text-base font-bold text-stone-900">Folder Belum Diatur</h3>
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Masukkan link atau ID folder Google Drive RT Anda agar isi foldernya langsung tampil di sini tanpa warga harus login.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsFolderSettingsOpen(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-800 hover:bg-amber-900 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              >
+                <Settings className="w-4 h-4" />
+                <span>Atur Link / ID Folder Google Drive</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 2. TAMPILAN KELOLA & CADANGKAN DATA (PENGURUS) */}
+      {activeDriveTab === 'manage' && (
+        <>
+          {needsAuth ? (
         <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center shadow-2xs space-y-6 max-w-xl mx-auto my-8">
           <div className="w-16 h-16 bg-amber-50 rounded-2xl border border-amber-200/80 flex items-center justify-center mx-auto text-amber-700 shadow-2xs">
             <Cloud className="w-9 h-9" />
@@ -832,7 +1018,76 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
                   })}
                 </div>
               )}
+              </div>
             </div>
+          </div>
+        )}
+      </>
+    )}
+
+      {/* Modal Pengaturan Folder ID Google Drive */}
+      {isFolderSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl border border-amber-200 max-w-lg w-full p-6 space-y-5 shadow-2xl animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Settings className="w-5 h-5 text-amber-800" />
+                <h3 className="font-bold text-stone-900 text-base">Atur Folder Google Drive RT</h3>
+              </div>
+              <button
+                onClick={() => setIsFolderSettingsOpen(false)}
+                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePublicFolderId} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-stone-800 block">
+                  Link Lengkap Folder atau Folder ID:
+                </label>
+                <input
+                  type="text"
+                  value={tempFolderInput}
+                  onChange={e => setTempFolderInput(e.target.value)}
+                  placeholder="Contoh: https://drive.google.com/drive/folders/1ABCxyz123... atau ID folder"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-700/30 focus:border-amber-700"
+                />
+                <p className="text-[11px] text-stone-500">
+                  Anda bisa menempelkan URL sharing langsung dari Google Drive, sistem akan otomatis mengenali ID foldernya.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                  <ShieldCheck className="w-4 h-4 text-amber-700" /> Cara Agar Folder Terbuka Tanpa Harus Sign-In:
+                </div>
+                <ol className="list-decimal list-inside text-[11px] space-y-1 text-stone-700 pl-1">
+                  <li>Buka folder Anda di Google Drive.</li>
+                  <li>Klik kanan folder &rarr; pilih <b>Bagikan (Share)</b>.</li>
+                  <li>Ubah bagian Akses umum dari <i>Dibatasi</i> menjadi <b>"Siapa saja yang memiliki link"</b>.</li>
+                  <li>Pilih peran sebagai <b>Pelihat (Viewer)</b> agar aman.</li>
+                  <li>Klik <b>Salin link</b> dan tempelkan ke kolom di atas lalu klik Simpan.</li>
+                </ol>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsFolderSettingsOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-50 text-xs font-semibold cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-amber-800 hover:bg-amber-900 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                >
+                  Simpan & Tampilkan Folder
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

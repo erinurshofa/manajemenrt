@@ -208,15 +208,46 @@ export async function deleteDriveFile(fileId: string): Promise<void> {
 }
 
 /**
- * Dapatkan ID Folder Khusus Google Drive dari .env jika pengguna mengaturnya
+ * Ekstrak Folder ID jika pengguna menempelkan link lengkap Google Drive
+ */
+export const extractDriveFolderId = (input: string): string => {
+  if (!input) return '';
+  const clean = input.trim();
+  const matchFolder = clean.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (matchFolder) return matchFolder[1];
+  const matchId = clean.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (matchId) return matchId[1];
+  return clean;
+};
+
+/**
+ * Simpan ID Folder Google Drive ke penyimpanan lokal browser
+ */
+export const setCustomFolderId = (folderIdOrUrl: string): void => {
+  if (typeof window !== 'undefined') {
+    const cleanId = extractDriveFolderId(folderIdOrUrl);
+    if (cleanId) {
+      localStorage.setItem('rt_google_drive_folder_id', cleanId);
+    } else {
+      localStorage.removeItem('rt_google_drive_folder_id');
+    }
+  }
+};
+
+/**
+ * Dapatkan ID Folder Khusus Google Drive dari localStorage atau .env
  */
 export const getCustomFolderId = (): string => {
-  return (
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('rt_google_drive_folder_id');
+    if (stored && stored.trim()) return stored.trim();
+  }
+  const envVal =
     (typeof import.meta !== 'undefined' &&
       (import.meta.env?.GOOGLE_DRIVE_FOLDER_ID?.trim() ||
         import.meta.env?.VITE_GOOGLE_DRIVE_FOLDER_ID?.trim())) ||
-    ''
-  );
+    '';
+  return extractDriveFolderId(envVal);
 };
 
 /**
