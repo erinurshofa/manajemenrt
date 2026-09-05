@@ -1,0 +1,8 @@
+{
+  "name": "GasemRaya",
+  "description": "Aplikasi Sistem Informasi RT GasemRaya: Pengelola data warga, kartu keluarga, pembukuan kas keuangan RT, arsip dokumen/AD ART, integrasi Google Drive, dan struktur pengurus RT.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
