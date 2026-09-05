@@ -1,20 +1,17 @@
 /**
  * Layanan Asisten Cerdas AI RT Gasem Raya 02 (Google Gemini AI)
- * Menggunakan model Gemini 2.5 Flash yang cepat, cerdas, dan responsif.
+ * Melewati proxy backend aman (/api/gemini) agar API Key tidak pernah bocor ke sisi klien / browser.
  */
 
 import { ProfilRt } from '../types';
 
 export const getGeminiApiKey = (): string => {
-  return (
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) ||
-    (typeof import.meta !== 'undefined' && import.meta.env?.GEMINI_API_KEY) ||
-    ''
-  );
+  // Disembunyikan sepenuhnya dari client bundle; ditangani aman oleh server-side proxy
+  return '';
 };
 
 export const isGeminiConfigured = (): boolean => {
-  return Boolean(getGeminiApiKey().trim());
+  return true;
 };
 
 export interface ChatMessage {
@@ -32,18 +29,13 @@ export interface AssistantContext {
 }
 
 /**
- * Kirim pertanyaan ke Gemini 2.5 Flash dengan konteks resmi RT Gasem Raya
+ * Kirim pertanyaan ke Gemini via proxy backend aman (/api/gemini)
  */
 export async function askGeminiAssistant(
   prompt: string,
   history: ChatMessage[] = [],
   context?: AssistantContext
 ): Promise<string> {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) {
-    throw new Error('Kunci API Gemini (VITE_GEMINI_API_KEY) belum dikonfigurasi pada berkas .env.');
-  }
-
   const p = context?.profilRt;
   const systemInstruction = `Anda adalah "Asisten Pintar Gasem Raya RT 02", asisten virtual resmi untuk rukun tetangga:
 - Wilayah: RT ${p?.nomorRt || '02'} / RW ${p?.nomorRw || '04'} Gasem Raya
@@ -62,7 +54,7 @@ Tugas Anda:
 4. Bersikap sangat ramah, santun, berbahasa Indonesia yang baik, lugas, dan solutif.
 5. Jika ada pertanyaan di luar topik RT atau hal sensitif, jawab dengan bijak dan arahkan kembali ke ketertiban lingkungan.`;
 
-  // Format pesan riwayat untuk Gemini
+  // Format pesan untuk Gemini
   const contents = [
     {
       role: 'user',
@@ -70,17 +62,14 @@ Tugas Anda:
     },
   ];
 
-  // Gunakan gemini-2.5-flash atau fallback ke gemini-1.5-flash
-  const model = 'gemini-2.5-flash';
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch('/api/gemini', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        model: 'gemini-1.5-flash',
         contents,
         generationConfig: {
           temperature: 0.7,
@@ -92,11 +81,7 @@ Tugas Anda:
     const data = await response.json();
 
     if (data.error) {
-      console.warn('Gemini API Error:', data.error);
-      // Fallback ke model 1.5 jika model 2.5 mengalami limit
-      if (model.includes('2.5')) {
-        return await fallbackGemini15(prompt, systemInstruction, apiKey);
-      }
+      console.warn('Gemini Proxy Error:', data.error);
       throw new Error(data.error.message || 'Gagal memproses respons dari Gemini AI.');
     }
 
@@ -107,27 +92,7 @@ Tugas Anda:
 
     return reply.trim();
   } catch (err: any) {
-    console.error('Error saat menghubungi Gemini AI:', err);
-    throw new Error(err?.message || 'Gagal tersambung ke layanan Gemini AI.');
+    console.error('Error saat menghubungi Asisten AI:', err);
+    throw new Error(err?.message || 'Gagal tersambung ke layanan Gemini AI. Pastikan server Vite aktif.');
   }
-}
-
-async function fallbackGemini15(
-  prompt: string,
-  systemInstruction: string,
-  apiKey: string
-): Promise<string> {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: `${systemInstruction}\n\nPertanyaan: ${prompt}` }] }],
-    }),
-  });
-  const data = await response.json();
-  return (
-    data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
-    'Mohon maaf, asisten AI sedang sibuk. Silakan coba beberapa saat lagi.'
-  );
 }

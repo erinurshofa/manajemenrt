@@ -39,10 +39,6 @@ interface LoginScreenProps {
   onLoginSuccess: (session: UserSession) => void;
   onOpenAndroidApk?: () => void;
   onOpenShareOnline?: () => void;
-  isSupabaseConnected?: boolean;
-  tablesMissing?: boolean;
-  onOpenSupabaseModal?: () => void;
-  onOpenAiModal?: () => void;
   totalWarga?: number;
   totalKk?: number;
 }
@@ -52,10 +48,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   onLoginSuccess,
   onOpenAndroidApk,
   onOpenShareOnline,
-  isSupabaseConnected = false,
-  tablesMissing = false,
-  onOpenSupabaseModal,
-  onOpenAiModal,
   totalWarga = 25,
   totalKk = 9,
 }) => {
@@ -70,9 +62,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   // Canonical online URL for public access
   const appOnlineUrl =
-    typeof window !== 'undefined' && window.location.origin.includes('run.app')
+    (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_APP_URL || import.meta.env?.APP_URL)) ||
+    (typeof window !== 'undefined' && window.location.origin.includes('vercel.app')
       ? window.location.origin
-      : 'https://ais-pre-s6own22pswpzsw5acwwovb-454559885813.asia-east1.run.app';
+      : 'https://manajemenrt.vercel.app/');
 
   const handleQuickCopyLink = () => {
     navigator.clipboard.writeText(appOnlineUrl);
@@ -222,44 +215,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </button>
             )}
 
-            {/* Asisten AI RT Button */}
-            {onOpenAiModal && (
-              <button
-                onClick={onOpenAiModal}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/40 transition-all shadow-2xs cursor-pointer active:scale-95"
-                title="Tanya Asisten Pintar RT Gasem Raya (Google Gemini AI)"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin-slow" />
-                <span className="hidden sm:inline">Asisten AI</span>
-              </button>
-            )}
-
-            {/* Supabase Cloud Status Button */}
-            {onOpenSupabaseModal && (
-              <button
-                onClick={onOpenSupabaseModal}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors shadow-2xs cursor-pointer ${
-                  isSupabaseConnected
-                    ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 border-emerald-600/50'
-                    : 'bg-stone-850/80 hover:bg-stone-800 text-stone-200 border-stone-600/50'
-                }`}
-                title={
-                  isSupabaseConnected
-                    ? 'Database Supabase Cloud Terhubung & Sinkron'
-                    : 'Data tersimpan aman di perangkat (IndexedDB)'
-                }
-              >
-                <Database className={`w-3.5 h-3.5 shrink-0 ${isSupabaseConnected ? 'text-emerald-400' : 'text-emerald-400'}`} />
-                <span className="hidden md:inline">
-                  {isSupabaseConnected ? 'Cloud Supabase' : 'Data Aman (Lokal)'}
-                </span>
-                <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${
-                    isSupabaseConnected ? 'bg-emerald-400 animate-pulse' : 'bg-emerald-500'
-                  }`}
-                />
-              </button>
-            )}
 
             {/* Tombol Masuk ke Menu (Login) */}
             <button
@@ -506,15 +461,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                             setUsername(e.target.value);
                             setErrorMessage(null);
                           }}
-                          placeholder="Masukkan: gasemraya02"
+                          placeholder="Masukkan username atau email pengurus"
                           className="w-full px-4 py-2.5 pl-10 text-sm font-medium bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
                           required
                         />
                         <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
                       </div>
-                      <p className="text-[11px] text-stone-500 mt-1">
-                        Username resmi: <code className="font-bold text-amber-900 font-mono">gasemraya02</code>
-                      </p>
                     </div>
 
                     {/* Input Password */}
@@ -535,7 +487,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                             setPassword(e.target.value);
                             setErrorMessage(null);
                           }}
-                          placeholder="Masukkan password admin (min. 6 karakter)"
+                          placeholder="Masukkan kata sandi"
                           className="w-full px-4 py-2.5 pl-10 pr-10 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
                           required
                         />
@@ -549,9 +501,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
-                      <p className="text-[11px] text-stone-500 mt-1">
-                        Sandi default pengurus: <code className="font-bold text-amber-900 font-mono">gasem0204</code> (min. 6 karakter)
-                      </p>
                     </div>
 
                     {/* Submit Button */}

@@ -183,9 +183,11 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
 
             <div className="p-3 rounded-xl bg-white border border-stone-200 text-xs space-y-2">
               <div className="flex justify-between items-center text-stone-600">
-                <span>URL Proyek:</span>
+                <span>URL Proyek Cloud:</span>
                 <code className="font-mono text-amber-900 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                  {rawUrl ? rawUrl.replace(/^https:\/\//, '') : 'Belum diisi'}
+                  {rawUrl
+                    ? rawUrl.replace(/^https:\/\//, '').replace(/^([a-z0-9]{4})[a-z0-9]+(\.supabase\.co)/, '$1****$2')
+                    : 'Terkonfigurasi'}
                 </code>
               </div>
               <div className="flex justify-between items-center text-stone-600">

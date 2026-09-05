@@ -191,9 +191,9 @@ export default function App() {
   const [supabaseErrorMessage, setSupabaseErrorMessage] = useState<string | undefined>();
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
 
-  // Supabase connection, offline queue flush & initial sync
+  // Supabase connection, offline queue flush & initial sync (HANYA setelah pengguna login)
   const refreshSupabaseConnection = useCallback(async () => {
-    if (!isLocalDbLoaded) return; // Cegah race condition: Tunggu hingga IndexedDB selesai dimuat
+    if (!isLocalDbLoaded || !currentUser) return; // Cegah koneksi dan sync jika belum login
 
     try {
       const status = await checkSupabaseConnection();
@@ -241,17 +241,19 @@ export default function App() {
       console.error('Error during Supabase connection check/sync:', err);
       setSupabaseErrorMessage(err?.message || 'Gagal tersambung ke Supabase');
     }
-  }, [isLocalDbLoaded, profilRt, daftarWarga, daftarMutasi, daftarKas, daftarDokumen, daftarPengurus, credentials]);
+  }, [isLocalDbLoaded, currentUser, profilRt, daftarWarga, daftarMutasi, daftarKas, daftarDokumen, daftarPengurus, credentials]);
 
-  // Jalankan sinkronisasi cloud HANYA setelah IndexedDB lokal selesai dimuat
+  // Jalankan sinkronisasi cloud HANYA setelah IndexedDB lokal selesai dimuat DAN pengguna sudah login
   useEffect(() => {
-    if (isLocalDbLoaded) {
+    if (isLocalDbLoaded && currentUser) {
       refreshSupabaseConnection();
     }
-  }, [isLocalDbLoaded]);
+  }, [isLocalDbLoaded, currentUser, refreshSupabaseConnection]);
 
-  // Network listener & Supabase Realtime Subscription
+  // Network listener & Supabase Realtime Subscription (HANYA setelah pengguna login)
   useEffect(() => {
+    if (!currentUser) return;
+
     const handleOnline = () => {
       setIsOnline(true);
       refreshSupabaseConnection();
@@ -261,7 +263,7 @@ export default function App() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Langganan perubahan data realtime dari perangkat pengurus lain
+    // Langganan perubahan data realtime dari perangkat pengurus lain HANYA setelah login
     const unsubscribeRealtime = subscribeToRealtimeChanges((table) => {
       console.log(`[Realtime] Perubahan terdeteksi pada tabel: ${table}, memuat data terbaru...`);
       refreshSupabaseConnection();
@@ -272,7 +274,7 @@ export default function App() {
       window.removeEventListener('offline', handleOffline);
       unsubscribeRealtime();
     };
-  }, [refreshSupabaseConnection]);
+  }, [currentUser, refreshSupabaseConnection]);
 
   // UI state
   const [activeTab, setActiveTab] = useState<TabId>('warga');
@@ -315,6 +317,7 @@ export default function App() {
   const handleLogout = () => {
     if (window.confirm('Apakah Anda yakin ingin keluar dari sistem Gasem Raya RT 02?')) {
       setCurrentUser(null);
+      setIsSupabaseConnected(false);
       sessionStorage.removeItem('gasemraya_auth');
       localStorage.removeItem('gasemraya_auth');
     }
@@ -509,10 +512,6 @@ export default function App() {
           onLoginSuccess={handleLoginSuccess}
           onOpenAndroidApk={() => setIsAndroidApkModalOpen(true)}
           onOpenShareOnline={() => setIsShareOnlineModalOpen(true)}
-          isSupabaseConnected={isSupabaseConnected}
-          tablesMissing={isSupabaseTablesMissing}
-          onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
-          onOpenAiModal={() => setIsAiModalOpen(true)}
           totalWarga={daftarWarga.length}
           totalKk={daftarKk.length}
         />
@@ -528,22 +527,6 @@ export default function App() {
           isOpen={isShareOnlineModalOpen}
           onClose={() => setIsShareOnlineModalOpen(false)}
           profilRt={profilRt}
-        />
-        <SupabaseConfigModal
-          isOpen={isSupabaseModalOpen}
-          onClose={() => setIsSupabaseModalOpen(false)}
-          isConnected={isSupabaseConnected}
-          tablesMissing={isSupabaseTablesMissing}
-          errorMessage={supabaseErrorMessage}
-          onRefreshConnection={refreshSupabaseConnection}
-        />
-        <AsistenAiModal
-          isOpen={isAiModalOpen}
-          onClose={() => setIsAiModalOpen(false)}
-          profilRt={profilRt}
-          totalWarga={daftarWarga.length}
-          totalKk={daftarKk.length}
-          saldoKas={daftarKas.reduce((acc, k) => acc + (k.jenis === 'PEMASUKAN' ? k.nominal : -k.nominal), 0)}
         />
       </>
     );

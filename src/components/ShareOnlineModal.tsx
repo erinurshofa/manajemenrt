@@ -30,11 +30,12 @@ export const ShareOnlineModal: React.FC<ShareOnlineModalProps> = ({
 
   if (!isOpen) return null;
 
-  // The permanent public shared URL on Cloud Run
+  // The permanent public shared URL
   const publicUrl =
-    typeof window !== 'undefined' && window.location.origin.includes('run.app')
+    (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_APP_URL || import.meta.env?.APP_URL)) ||
+    (typeof window !== 'undefined' && window.location.origin.includes('vercel.app')
       ? window.location.origin
-      : 'https://ais-pre-s6own22pswpzsw5acwwovb-454559885813.asia-east1.run.app';
+      : 'https://manajemenrt.vercel.app/');
 
   const handleCopy = () => {
     navigator.clipboard.writeText(publicUrl);

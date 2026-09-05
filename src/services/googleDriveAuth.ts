@@ -9,19 +9,31 @@ import {
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Dukung custom Google OAuth Client ID dan API Key dari .env jika pengguna memasukkannya
-const customApiKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_API_KEY) || firebaseConfig.apiKey;
-const customClientId = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) || firebaseConfig.oAuthClientId;
+// Lazy Firebase Auth initialization
+let authInstance: ReturnType<typeof getAuth> | null = null;
 
-const effectiveConfig = {
-  ...firebaseConfig,
-  apiKey: customApiKey,
-  oAuthClientId: customClientId,
+export const getFirebaseAuth = () => {
+  if (!authInstance) {
+    const customApiKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_API_KEY) || firebaseConfig.apiKey;
+    const customClientId = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) || firebaseConfig.oAuthClientId;
+
+    const effectiveConfig = {
+      ...firebaseConfig,
+      apiKey: customApiKey,
+      oAuthClientId: customClientId,
+    };
+
+    const app = getApps().length === 0 ? initializeApp(effectiveConfig) : getApp();
+    authInstance = getAuth(app);
+  }
+  return authInstance;
 };
 
-// Ensure Firebase is initialized only once
-const app = getApps().length === 0 ? initializeApp(effectiveConfig) : getApp();
-export const auth = getAuth(app);
+export const auth = {
+  get currentUser() {
+    return authInstance ? authInstance.currentUser : null;
+  },
+} as any;
 
 // Desired Google Drive Scopes (Gunakan drive.file untuk izin aman & mencegah unverified app warning)
 export const GOOGLE_DRIVE_SCOPES = [
@@ -32,7 +44,6 @@ const provider = new GoogleAuthProvider();
 GOOGLE_DRIVE_SCOPES.forEach(scope => {
   provider.addScope(scope);
 });
-// Set prompt to select account / consent
 provider.setCustomParameters({
   prompt: 'consent',
   access_type: 'offline',
@@ -50,7 +61,8 @@ export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
-  return onAuthStateChanged(auth, async (user: User | null) => {
+  const firebaseAuth = getFirebaseAuth();
+  return onAuthStateChanged(firebaseAuth, async (user: User | null) => {
     currentUserProfile = user;
     if (user) {
       if (!cachedAccessToken && typeof window !== 'undefined') {
@@ -75,7 +87,8 @@ export const initAuth = (
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string }> => {
   try {
     isSigningIn = true;
-    const result = await signInWithPopup(auth, provider);
+    const firebaseAuth = getFirebaseAuth();
+    const result = await signInWithPopup(firebaseAuth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
       throw new Error('Gagal mendapatkan token akses Google Drive. Pastikan Anda memberikan izin akses.');
@@ -103,11 +116,13 @@ export const getAccessToken = async (): Promise<string | null> => {
 };
 
 export const getCurrentGoogleUser = (): User | null => {
-  return currentUserProfile || auth.currentUser;
+  return currentUserProfile || (authInstance ? authInstance.currentUser : null);
 };
 
 export const logoutGoogle = async () => {
-  await signOut(auth);
+  if (authInstance) {
+    await signOut(authInstance);
+  }
   cachedAccessToken = null;
   if (typeof window !== 'undefined') {
     sessionStorage.removeItem(GDRIVE_TOKEN_KEY);
