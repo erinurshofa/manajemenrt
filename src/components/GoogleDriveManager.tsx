@@ -22,6 +22,7 @@ import {
   ChevronRight,
   HardDrive,
   User,
+  Users,
   LogOut,
   Info,
 } from 'lucide-react';
