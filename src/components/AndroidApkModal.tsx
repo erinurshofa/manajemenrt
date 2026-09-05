@@ -40,7 +40,7 @@ export const AndroidApkModal: React.FC<AndroidApkModalProps> = ({
 
   // Use the canonical production/shared URL if available or window.location.origin
   const appUrl =
-    (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_APP_URL || import.meta.env?.APP_URL)) ||
+    (typeof import.meta !== 'undefined' && (import.meta.env?.APP_URL || import.meta.env?.VITE_APP_URL)) ||
     (typeof window !== 'undefined' && window.location.origin.includes('vercel.app')
       ? window.location.origin
       : 'https://manajemenrt.vercel.app/');

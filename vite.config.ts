@@ -139,11 +139,47 @@ export default defineConfig(({ mode }) => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
     define: {
+      'import.meta.env.SUPABASE_URL': JSON.stringify(
+        env.SUPABASE_URL || env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
+      ),
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(
-        env.VITE_SUPABASE_URL || env.SUPABASE_URL || ''
+        env.SUPABASE_URL || env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || ''
+      ),
+      'import.meta.env.SUPABASE_ANON_KEY': JSON.stringify(
+        env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
       ),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(
-        env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || ''
+        env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
+      ),
+      'import.meta.env.GOOGLE_CLIENT_ID': JSON.stringify(
+        env.GOOGLE_CLIENT_ID || env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || ''
+      ),
+      'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(
+        env.GOOGLE_CLIENT_ID || env.VITE_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || ''
+      ),
+      'import.meta.env.GOOGLE_API_KEY': JSON.stringify(
+        env.GOOGLE_API_KEY || env.VITE_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY || ''
+      ),
+      'import.meta.env.VITE_GOOGLE_API_KEY': JSON.stringify(
+        env.GOOGLE_API_KEY || env.VITE_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY || ''
+      ),
+      'import.meta.env.GOOGLE_DRIVE_FOLDER_ID': JSON.stringify(
+        env.GOOGLE_DRIVE_FOLDER_ID || env.VITE_GOOGLE_DRIVE_FOLDER_ID || process.env.GOOGLE_DRIVE_FOLDER_ID || ''
+      ),
+      'import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID': JSON.stringify(
+        env.GOOGLE_DRIVE_FOLDER_ID || env.VITE_GOOGLE_DRIVE_FOLDER_ID || process.env.GOOGLE_DRIVE_FOLDER_ID || ''
+      ),
+      'import.meta.env.GOOGLE_SERVICE_ACCOUNT_EMAIL': JSON.stringify(
+        env.GOOGLE_SERVICE_ACCOUNT_EMAIL || env.VITE_GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || ''
+      ),
+      'import.meta.env.VITE_GOOGLE_SERVICE_ACCOUNT_EMAIL': JSON.stringify(
+        env.GOOGLE_SERVICE_ACCOUNT_EMAIL || env.VITE_GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || ''
+      ),
+      'import.meta.env.APP_URL': JSON.stringify(
+        env.APP_URL || env.VITE_APP_URL || process.env.APP_URL || ''
+      ),
+      'import.meta.env.VITE_APP_URL': JSON.stringify(
+        env.APP_URL || env.VITE_APP_URL || process.env.APP_URL || ''
       ),
     },
   };

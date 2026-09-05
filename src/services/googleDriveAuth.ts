@@ -14,8 +14,8 @@ let authInstance: ReturnType<typeof getAuth> | null = null;
 
 export const getFirebaseAuth = () => {
   if (!authInstance) {
-    const customApiKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_API_KEY) || firebaseConfig.apiKey;
-    const customClientId = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) || firebaseConfig.oAuthClientId;
+    const customApiKey = (typeof import.meta !== 'undefined' && (import.meta.env?.GOOGLE_API_KEY || import.meta.env?.VITE_GOOGLE_API_KEY)) || firebaseConfig.apiKey;
+    const customClientId = (typeof import.meta !== 'undefined' && (import.meta.env?.GOOGLE_CLIENT_ID || import.meta.env?.VITE_GOOGLE_CLIENT_ID)) || firebaseConfig.oAuthClientId;
 
     const effectiveConfig = {
       ...firebaseConfig,
@@ -129,7 +129,8 @@ export const initAuth = (
 
 export const googleSignIn = async (): Promise<{ user: any; accessToken: string }> => {
   const customClientId =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID?.trim()) ||
+    (typeof import.meta !== 'undefined' &&
+      (import.meta.env?.GOOGLE_CLIENT_ID?.trim() || import.meta.env?.VITE_GOOGLE_CLIENT_ID?.trim())) ||
     firebaseConfig.oAuthClientId;
 
   // 1. Prioritaskan Google Identity Services (GIS) Token Client untuk custom Client ID

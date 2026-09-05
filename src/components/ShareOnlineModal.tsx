@@ -32,7 +32,7 @@ export const ShareOnlineModal: React.FC<ShareOnlineModalProps> = ({
 
   // The permanent public shared URL
   const publicUrl =
-    (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_APP_URL || import.meta.env?.APP_URL)) ||
+    (typeof import.meta !== 'undefined' && (import.meta.env?.APP_URL || import.meta.env?.VITE_APP_URL)) ||
     (typeof window !== 'undefined' && window.location.origin.includes('vercel.app')
       ? window.location.origin
       : 'https://manajemenrt.vercel.app/');

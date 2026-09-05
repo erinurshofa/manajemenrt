@@ -62,7 +62,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   // Canonical online URL for public access
   const appOnlineUrl =
-    (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_APP_URL || import.meta.env?.APP_URL)) ||
+    (typeof import.meta !== 'undefined' && (import.meta.env?.APP_URL || import.meta.env?.VITE_APP_URL)) ||
     (typeof window !== 'undefined' && window.location.origin.includes('vercel.app')
       ? window.location.origin
       : 'https://manajemenrt.vercel.app/');

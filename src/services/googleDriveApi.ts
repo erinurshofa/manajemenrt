@@ -211,7 +211,12 @@ export async function deleteDriveFile(fileId: string): Promise<void> {
  * Dapatkan ID Folder Khusus Google Drive dari .env jika pengguna mengaturnya
  */
 export const getCustomFolderId = (): string => {
-  return (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_DRIVE_FOLDER_ID?.trim()) || '';
+  return (
+    (typeof import.meta !== 'undefined' &&
+      (import.meta.env?.GOOGLE_DRIVE_FOLDER_ID?.trim() ||
+        import.meta.env?.VITE_GOOGLE_DRIVE_FOLDER_ID?.trim())) ||
+    ''
+  );
 };
 
 /**
@@ -220,15 +225,15 @@ export const getCustomFolderId = (): string => {
 export const getServiceAccountEmail = (): string => {
   return (
     (typeof import.meta !== 'undefined' &&
-      (import.meta.env?.VITE_GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() ||
-        import.meta.env?.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim())) ||
+      (import.meta.env?.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() ||
+        import.meta.env?.VITE_GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim())) ||
     ''
   );
 };
 
 /**
  * Get or create "Sistem RT 02 Gasem Raya" default backup folder in user's Google Drive
- * Jika VITE_GOOGLE_DRIVE_FOLDER_ID diatur pada .env, fungsi langsung menggunakan folder ID tersebut.
+ * Jika GOOGLE_DRIVE_FOLDER_ID diatur pada .env, fungsi langsung menggunakan folder ID tersebut.
  */
 export async function getOrCreateRtFolder(): Promise<DriveFile> {
   const customFolderId = getCustomFolderId();

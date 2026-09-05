@@ -40,7 +40,7 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
 
   if (!isOpen) return null;
 
-  const rawUrl = import.meta.env.VITE_SUPABASE_URL || '';
+  const rawUrl = import.meta.env.SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || '';
   const matchProjectRef = rawUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
   const projectRef = matchProjectRef ? matchProjectRef[1] : '';
   const sqlEditorUrl = projectRef
