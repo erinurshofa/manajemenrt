@@ -4,24 +4,58 @@
  * Mengamankan GEMINI_API_KEY di sisi server Vercel agar tidak terekspos ke publik
  */
 
+export const config = {
+  maxDuration: 30,
+};
+
 export default async function handler(req: any, res: any) {
   // Set CORS headers
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  const setCors = () => {
+    if (res && typeof res.setHeader === 'function') {
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+      res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+      );
+    }
+  };
+
+  const sendJson = (status: number, data: any) => {
+    setCors();
+    if (res && typeof res.status === 'function') {
+      return res.status(status).json(data);
+    }
+    return new Response(JSON.stringify(data), {
+      status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+        'Access-Control-Allow-Headers': '*',
+      },
+    });
+  };
+
+  setCors();
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    if (res && typeof res.status === 'function') {
+      return res.status(200).end();
+    }
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+        'Access-Control-Allow-Headers': '*',
+      },
+    });
   }
 
   if (req.method !== 'POST') {
-    res.status(405).json({ error: { message: 'Metode tidak diizinkan. Gunakan metode POST.' } });
-    return;
+    return sendJson(405, { error: { message: 'Metode tidak diizinkan. Gunakan metode POST.' } });
   }
 
   const apiKey =
@@ -30,12 +64,11 @@ export default async function handler(req: any, res: any) {
     '';
 
   if (!apiKey) {
-    res.status(500).json({
+    return sendJson(500, {
       error: {
         message: 'GEMINI_API_KEY belum dikonfigurasi di Environment Variables server Vercel.',
       },
     });
-    return;
   }
 
   let body = req.body;
@@ -45,14 +78,19 @@ export default async function handler(req: any, res: any) {
     } catch {
       body = {};
     }
+  } else if (!body && typeof req.json === 'function') {
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
   }
   body = body || {};
 
   const { contents, generationConfig, model = 'gemini-2.5-flash' } = body;
 
   if (!contents || !Array.isArray(contents)) {
-    res.status(400).json({ error: { message: 'Format payload salah: "contents" wajib disertakan.' } });
-    return;
+    return sendJson(400, { error: { message: 'Format payload salah: "contents" wajib disertakan.' } });
   }
 
   try {
@@ -63,7 +101,8 @@ export default async function handler(req: any, res: any) {
       body: JSON.stringify({ contents, generationConfig }),
     });
 
-    let data: any = await apiRes.json();
+    const isJson = apiRes.headers.get('content-type')?.includes('application/json');
+    let data: any = isJson ? await apiRes.json().catch(() => ({})) : {};
 
     // Fallback otomatis ke gemini-flash-latest jika model spesifik belum aktif/limit/404
     if (apiRes.status === 404 || data.error?.message?.includes('not found')) {
@@ -73,11 +112,12 @@ export default async function handler(req: any, res: any) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents, generationConfig }),
       });
-      data = await apiRes.json();
+      const isFallbackJson = apiRes.headers.get('content-type')?.includes('application/json');
+      data = isFallbackJson ? await apiRes.json().catch(() => ({})) : {};
     }
 
-    res.status(apiRes.status).json(data);
+    return sendJson(apiRes.status, data);
   } catch (err: any) {
-    res.status(500).json({ error: { message: err?.message || 'Server proxy internal error' } });
+    return sendJson(500, { error: { message: err?.message || 'Server proxy internal error' } });
   }
 }

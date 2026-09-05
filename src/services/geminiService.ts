@@ -87,17 +87,24 @@ Tugas Anda:
     });
 
     const contentType = response.headers.get('content-type') || '';
-    if (response.ok && contentType.includes('application/json')) {
-      const data = await response.json();
-      if (!data.error) {
-        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (reply) return reply.trim();
-      } else {
-        console.warn('Gemini Proxy Warning:', data.error);
-        proxyErrorMessage = data.error?.message || '';
+    if (contentType.includes('application/json')) {
+      const data = await response.json().catch(() => null);
+      if (response.ok && data) {
+        if (!data.error) {
+          const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (reply) return reply.trim();
+        } else {
+          console.warn('Gemini Proxy Warning:', data.error);
+          proxyErrorMessage = data.error?.message || '';
+        }
+      } else if (data?.error?.message) {
+        proxyErrorMessage = data.error.message;
       }
     } else {
       console.warn(`Proxy /api/gemini tidak mengembalikan JSON valid (status ${response.status}). Mencoba fallback langsung...`);
+      if (!response.ok) {
+        proxyErrorMessage = `Proxy server /api/gemini mengembalikan status ${response.status}. Pastikan GEMINI_API_KEY telah diatur di Environment Variables Vercel.`;
+      }
     }
   } catch (proxyErr: any) {
     console.warn('Proxy /api/gemini tidak dapat dihubungi:', proxyErr?.message);
@@ -115,7 +122,10 @@ Tugas Anda:
         body: JSON.stringify({ contents, generationConfig }),
       });
 
-      let directData: any = await directRes.json();
+      const directContentType = directRes.headers.get('content-type') || '';
+      let directData: any = directContentType.includes('application/json')
+        ? await directRes.json().catch(() => ({}))
+        : {};
 
       // Fallback otomatis jika model 2.5 belum aktif ke model flash-latest
       if (directRes.status === 404 || directData.error?.message?.includes('not found')) {
@@ -125,7 +135,10 @@ Tugas Anda:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents, generationConfig }),
         });
-        directData = await directRes.json();
+        const fallbackContentType = directRes.headers.get('content-type') || '';
+        directData = fallbackContentType.includes('application/json')
+          ? await directRes.json().catch(() => ({}))
+          : {};
       }
 
       if (directData.candidates?.[0]?.content?.parts?.[0]?.text) {
@@ -144,6 +157,6 @@ Tugas Anda:
   // Jika proxy gagal dan tidak ada direct key
   throw new Error(
     proxyErrorMessage ||
-      'Layanan Gemini AI tidak dapat diakses. Jika dihosting di Vercel, pastikan GEMINI_API_KEY telah diatur di Settings > Environment Variables Vercel.'
+      'Layanan Gemini AI tidak dapat diakses. Pastikan GEMINI_API_KEY atau VITE_GEMINI_API_KEY telah diatur di Settings > Environment Variables Vercel.'
   );
 }
