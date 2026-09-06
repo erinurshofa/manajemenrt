@@ -7,20 +7,30 @@ import {
   User,
   signOut,
 } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
+const DEFAULT_FIREBASE_CONFIG = {
+  projectId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_PROJECT_ID) || 'resolute-impact-7xctm',
+  appId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_APP_ID) || '',
+  apiKey: (typeof import.meta !== 'undefined' && (import.meta.env?.GOOGLE_API_KEY || import.meta.env?.VITE_GOOGLE_API_KEY)) || '',
+  authDomain: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN) || 'resolute-impact-7xctm.firebaseapp.com',
+  storageBucket: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET) || 'resolute-impact-7xctm.firebasestorage.app',
+  messagingSenderId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID) || '',
+  measurementId: '',
+  oAuthClientId: (typeof import.meta !== 'undefined' && (import.meta.env?.GOOGLE_CLIENT_ID || import.meta.env?.VITE_GOOGLE_CLIENT_ID)) || '',
+  recaptchaSiteKey: '',
+};
 
 // Lazy Firebase Auth initialization
 let authInstance: ReturnType<typeof getAuth> | null = null;
 
 export const getFirebaseAuth = () => {
   if (!authInstance) {
-    const customApiKey = (typeof import.meta !== 'undefined' && (import.meta.env?.GOOGLE_API_KEY || import.meta.env?.VITE_GOOGLE_API_KEY)) || firebaseConfig.apiKey;
-    const customClientId = (typeof import.meta !== 'undefined' && (import.meta.env?.GOOGLE_CLIENT_ID || import.meta.env?.VITE_GOOGLE_CLIENT_ID)) || firebaseConfig.oAuthClientId;
+    const customApiKey = (typeof import.meta !== 'undefined' && (import.meta.env?.GOOGLE_API_KEY || import.meta.env?.VITE_GOOGLE_API_KEY)) || '';
+    const customClientId = (typeof import.meta !== 'undefined' && (import.meta.env?.GOOGLE_CLIENT_ID || import.meta.env?.VITE_GOOGLE_CLIENT_ID)) || '';
 
     const effectiveConfig = {
-      ...firebaseConfig,
-      apiKey: customApiKey,
-      oAuthClientId: customClientId,
+      ...DEFAULT_FIREBASE_CONFIG,
+      apiKey: customApiKey || DEFAULT_FIREBASE_CONFIG.apiKey,
+      oAuthClientId: customClientId || DEFAULT_FIREBASE_CONFIG.oAuthClientId,
     };
 
     const app = getApps().length === 0 ? initializeApp(effectiveConfig) : getApp();
@@ -131,7 +141,7 @@ export const googleSignIn = async (): Promise<{ user: any; accessToken: string }
   const customClientId =
     (typeof import.meta !== 'undefined' &&
       (import.meta.env?.GOOGLE_CLIENT_ID?.trim() || import.meta.env?.VITE_GOOGLE_CLIENT_ID?.trim())) ||
-    firebaseConfig.oAuthClientId;
+    DEFAULT_FIREBASE_CONFIG.oAuthClientId;
 
   // 1. Prioritaskan Google Identity Services (GIS) Token Client untuk custom Client ID
   if (customClientId && !customClientId.startsWith('your-')) {

@@ -18,7 +18,8 @@
 *.p12
 service-account*.json
 *credential*.json
-!firebase-applet-config.json
+firebase-applet-config.json
+!firebase-applet-config.example.json
 
 # 2. Dependencies & Package Manager Caches
 node_modules/
