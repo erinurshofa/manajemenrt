@@ -170,33 +170,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           </button>
         )}
 
-        {/* Database Supabase Cloud Status Button */}
-        {onOpenSupabaseModal && (
-          <button
-            id="btn-top-supabase-status"
-            onClick={onOpenSupabaseModal}
-            className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shadow-2xs cursor-pointer active:scale-95 ${
-              isSupabaseConnected
-                ? 'bg-emerald-50 hover:bg-emerald-100/90 text-emerald-900 border-emerald-300'
-                : 'bg-stone-100 hover:bg-stone-200/90 text-stone-800 border-stone-300'
-            }`}
-            title={
-              isSupabaseConnected
-                ? 'Database Cloud Supabase: Terhubung & Sinkron'
-                : 'Data tersimpan aman di perangkat (IndexedDB)'
-            }
-          >
-            <Database className={`w-3.5 h-3.5 shrink-0 ${isSupabaseConnected ? 'text-emerald-700' : 'text-stone-600'}`} />
-            <span className="hidden sm:inline">
-              {isSupabaseConnected ? 'Cloud Supabase' : 'Data Aman (Lokal)'}
-            </span>
-            <span
-              className={`w-2 h-2 rounded-full shrink-0 ${
-                isSupabaseConnected ? 'bg-emerald-500' : 'bg-emerald-600'
-              }`}
-            />
-          </button>
-        )}
+
 
         {/* Asisten AI RT Button (Google Gemini) */}
         {onOpenAiModal && (

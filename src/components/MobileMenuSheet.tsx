@@ -162,18 +162,7 @@ export const MobileMenuSheet: React.FC<MobileMenuSheetProps> = ({
             if (onOpenShareOnline) onOpenShareOnline();
           },
         },
-        {
-          id: 'supabase',
-          label: isSupabaseConnected ? 'Database Cloud Supabase' : 'Penyimpanan Data Lokal',
-          desc: isSupabaseConnected ? 'Terhubung & tersinkronisasi otomatis' : 'Tersimpan aman di perangkat (IndexedDB)',
-          icon: Database,
-          color: isSupabaseConnected ? 'from-emerald-600 to-emerald-800' : 'from-stone-500 to-stone-700',
-          badge: isSupabaseConnected ? 'Online' : 'Lokal',
-          onClick: () => {
-            onClose();
-            if (onOpenSupabaseModal) onOpenSupabaseModal();
-          },
-        },
+
       ],
     },
     ...(isAdminOrPengurus
