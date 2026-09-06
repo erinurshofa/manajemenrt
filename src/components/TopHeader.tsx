@@ -149,12 +149,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <button
             id="btn-top-android-apk"
             onClick={onOpenAndroidApk}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100/90 text-emerald-900 border border-emerald-300 transition-all shadow-2xs cursor-pointer active:scale-95"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100/90 text-emerald-900 border border-emerald-300 transition-all shadow-2xs cursor-pointer active:scale-95"
             title="Pasang di HP Android / Dapatkan Berkas APK"
           >
             <Smartphone className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-            <span className="hidden sm:inline">Pasang di HP (APK)</span>
-            <span className="sm:hidden">APK</span>
+            <span>Pasang di HP (APK)</span>
           </button>
         )}
 
@@ -163,12 +162,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <button
             id="btn-top-share-online"
             onClick={onOpenShareOnline}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100/90 text-amber-900 border border-amber-300 transition-all shadow-2xs cursor-pointer active:scale-95"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100/90 text-amber-900 border border-amber-300 transition-all shadow-2xs cursor-pointer active:scale-95"
             title="Salin & Bagikan Link Website Online"
           >
             <Globe className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-            <span className="hidden sm:inline">Bagikan Link Web</span>
-            <span className="sm:hidden">Link</span>
+            <span>Bagikan Link Web</span>
           </button>
         )}
 
@@ -177,7 +175,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <button
             id="btn-top-supabase-status"
             onClick={onOpenSupabaseModal}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shadow-2xs cursor-pointer active:scale-95 ${
+            className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all shadow-2xs cursor-pointer active:scale-95 ${
               isSupabaseConnected
                 ? 'bg-emerald-50 hover:bg-emerald-100/90 text-emerald-900 border-emerald-300'
                 : 'bg-stone-100 hover:bg-stone-200/90 text-stone-800 border-stone-300'
@@ -209,16 +207,16 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             title="Buka Asisten Cerdas AI (Konsultasi Warga & Surat RT)"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-900 animate-spin-slow" />
-            <span className="hidden sm:inline">Asisten AI</span>
+            <span className="hidden xs:inline sm:inline">Asisten AI</span>
           </button>
         )}
 
-        {/* Tambah Warga Button (accessible for Admin/Pengurus or as general entry) */}
+        {/* Tambah Warga Button (accessible on desktop, on mobile handled by FAB) */}
         {isAdminOrPengurus && (
           <button
             id="btn-top-add-warga"
             onClick={onOpenAddWarga}
-            className="text-white px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all bg-gradient-to-r from-amber-700 to-amber-900 hover:from-amber-800 hover:to-amber-950"
+            className="hidden sm:flex text-white px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold items-center gap-1.5 shadow-sm transition-all bg-gradient-to-r from-amber-700 to-amber-900 hover:from-amber-800 hover:to-amber-950"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Tambah Warga</span>

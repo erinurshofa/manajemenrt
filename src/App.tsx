@@ -20,6 +20,8 @@ import { AndroidApkModal } from './components/AndroidApkModal';
 import { ShareOnlineModal } from './components/ShareOnlineModal';
 import { SupabaseConfigModal } from './components/SupabaseConfigModal';
 import { AsistenAiModal } from './components/AsistenAiModal';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { MobileMenuSheet } from './components/MobileMenuSheet';
 import { Sparkles } from 'lucide-react';
 import { GoogleDriveManager } from './components/GoogleDriveManager';
 import { usePWAInstall } from './hooks/usePWAInstall';
@@ -348,6 +350,7 @@ export default function App() {
   const [isAndroidApkModalOpen, setIsAndroidApkModalOpen] = useState(false);
   const [isShareOnlineModalOpen, setIsShareOnlineModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isMobileMenuSheetOpen, setIsMobileMenuSheetOpen] = useState(false);
   const [selectedKkFilter, setSelectedKkFilter] = useState<string | undefined>(undefined);
 
   // PWA & Android Installation Hook
@@ -634,7 +637,7 @@ export default function App() {
         />
 
         {/* Scrollable Main Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 pb-28 md:pb-8">
           {/* Top Summary Stats (Only on demographic tabs) */}
           {(activeTab === 'warga' || activeTab === 'kk' || activeTab === 'laporan' || activeTab === 'mutasi') && (
             <DashboardStats
@@ -839,17 +842,43 @@ export default function App() {
         saldoKas={daftarKas.reduce((acc, k) => acc + (k.jenis === 'PEMASUKAN' ? k.nominal : -k.nominal), 0)}
       />
 
-      {/* Floating AI Assistant Trigger Button */}
+      {/* Floating AI Assistant Trigger Button (Desktop & Tablet only) */}
       <button
         id="btn-floating-ai-assistant"
         onClick={() => setIsAiModalOpen(true)}
-        className="fixed bottom-5 right-5 z-40 p-3 sm:px-4 sm:py-3 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-stone-950 font-bold shadow-xl border-2 border-amber-300/80 flex items-center gap-2 cursor-pointer transition-all hover:scale-105 active:scale-95"
+        className="hidden md:flex fixed bottom-5 right-5 z-40 p-3 sm:px-4 sm:py-3 rounded-full bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-stone-950 font-bold shadow-xl border-2 border-amber-300/80 items-center gap-2 cursor-pointer transition-all hover:scale-105 active:scale-95"
         title="Tanya Asisten Pintar RT Gasem Raya (Google Gemini AI)"
       >
         <Sparkles className="w-4.5 h-4.5 text-stone-950 animate-spin-slow" />
         <span className="hidden sm:inline text-xs tracking-wide">Asisten AI RT</span>
         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
       </button>
+
+      {/* World-class Native Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        onOpenAddWarga={handleOpenAddWarga}
+        onOpenAiModal={() => setIsAiModalOpen(true)}
+        onOpenMenuSheet={() => setIsMobileMenuSheetOpen(true)}
+      />
+
+      {/* World-class Native Mobile Action Sheet for Secondary Menu */}
+      <MobileMenuSheet
+        isOpen={isMobileMenuSheetOpen}
+        onClose={() => setIsMobileMenuSheetOpen(false)}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onOpenLogin={() => setIsLoginModalOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenThemeModal={() => setIsThemeLogoModalOpen(true)}
+        onOpenAndroidApk={() => setIsAndroidApkModalOpen(true)}
+        onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+        onOpenAiModal={() => setIsAiModalOpen(true)}
+        isSupabaseConnected={isSupabaseConnected}
+      />
     </div>
   );
 }

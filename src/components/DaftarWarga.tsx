@@ -151,8 +151,8 @@ export const DaftarWarga: React.FC<DaftarWargaProps> = ({
         </div>
       </div>
 
-      {/* Table Data */}
-      <div className="overflow-x-auto flex-1">
+      {/* Desktop Table Data (Hidden on mobile) */}
+      <div className="hidden md:block overflow-x-auto flex-1">
         <table className="w-full text-left text-sm border-collapse">
           <thead className="bg-white sticky top-0 z-10 border-b border-slate-100">
             <tr className="text-slate-500 font-medium text-xs uppercase tracking-wider">
@@ -331,6 +331,148 @@ export const DaftarWarga: React.FC<DaftarWargaProps> = ({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card View (Optimized for thumb interaction on phones) */}
+      <div className="md:hidden p-3 space-y-3 bg-slate-50/50">
+        {filteredWarga.length === 0 ? (
+          <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center shadow-xs">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-amber-100/80 flex items-center justify-center text-amber-800">
+              <Users className="w-6 h-6" />
+            </div>
+            <p className="font-bold text-stone-900 text-sm">
+              {daftarWarga.length === 0 ? 'Data Warga Masih Kosong' : 'Warga Tidak Ditemukan'}
+            </p>
+            <p className="text-xs text-stone-500 mt-1">
+              {daftarWarga.length === 0
+                ? 'Sentuh tombol + Tambah Warga untuk mendaftar.'
+                : 'Coba kata kunci atau filter lain.'}
+            </p>
+            {isAdmin && (
+              <button
+                onClick={onTambahWarga}
+                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Tambah Warga</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          filteredWarga.map((warga, index) => {
+            const usia = hitungUsia(warga.tanggalLahir);
+            const isKepala = warga.hubunganKeluarga === 'KEPALA KELUARGA';
+            const isLaki = warga.jenisKelamin === 'L';
+
+            return (
+              <div
+                key={warga.id}
+                className={`bg-white rounded-2xl border border-slate-200/80 p-3.5 shadow-xs transition-all active:scale-[0.99] ${
+                  warga.statusKehidupan !== 'Hidup' ? 'opacity-70 bg-rose-50/30' : ''
+                }`}
+              >
+                {/* Header Card: Avatar + Nama + Status */}
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs ${
+                        isLaki
+                          ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                          : 'bg-rose-100 text-rose-700 border border-rose-200'
+                      }`}
+                    >
+                      {isLaki ? '♂' : '♀'}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3 className="font-bold text-slate-900 text-sm leading-tight truncate">
+                          {warga.nama}
+                        </h3>
+                        {warga.statusKehidupan !== 'Hidup' && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-700">
+                            {warga.statusKehidupan}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-500">
+                        <span>{isLaki ? 'Laki-laki' : 'Perempuan'}</span>
+                        <span>•</span>
+                        <span className="font-medium text-slate-700">{usia} Thn</span>
+                        <span>•</span>
+                        <span className="text-[10px] text-slate-400">{warga.agama}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold tracking-tight ${
+                      isKepala
+                        ? 'bg-blue-100 text-blue-800'
+                        : warga.hubunganKeluarga === 'ISTRI'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {warga.hubunganKeluarga}
+                  </span>
+                </div>
+
+                {/* Card Body: NIK, KK, Alamat */}
+                <div className="mt-3 pt-2.5 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] font-semibold text-slate-400 block uppercase">NIK</span>
+                    <span className="font-mono text-slate-700 text-[11px]">
+                      {isAdmin ? warga.nik : maskNik(warga.nik)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-semibold text-slate-400 block uppercase">No. KK</span>
+                    <button
+                      onClick={() => onPilihKk(warga.noKk)}
+                      className="font-mono text-[11px] text-blue-600 hover:underline flex items-center gap-1"
+                    >
+                      <span>{isAdmin ? warga.noKk : maskNoKk(warga.noKk)}</span>
+                    </button>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-[10px] font-semibold text-slate-400 block uppercase">Alamat Domisili</span>
+                    <p className="text-slate-600 text-xs truncate">
+                      {warga.alamat} • RT {warga.rt}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Card Actions: Big thumb-friendly buttons */}
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <button
+                    onClick={() => onLihatDetail(warga)}
+                    className="flex-1 py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold text-center transition-colors active:scale-95"
+                  >
+                    Lihat Detail
+                  </button>
+                  {isAdmin && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => onEditWarga(warga)}
+                        className="p-2 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-colors active:scale-90"
+                        title="Edit"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => onHapusWarga(warga.id, warga.nama)}
+                        className="p-2 bg-rose-50 text-rose-700 rounded-xl hover:bg-rose-100 transition-colors active:scale-90"
+                        title="Hapus"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Table Footer */}
