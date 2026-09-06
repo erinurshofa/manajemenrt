@@ -25,7 +25,7 @@ interface MobileMenuSheetProps {
   onClose: () => void;
   activeTab: TabId;
   onSelectTab: (tab: TabId) => void;
-  profilRt: ProfilRt;
+  profilRt?: ProfilRt;
   currentUser?: UserSession | null;
   onOpenThemeModal?: () => void;
   onOpenSettings?: () => void;

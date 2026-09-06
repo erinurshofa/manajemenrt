@@ -13,24 +13,31 @@ import { ProfilRt, UserSession } from '../types';
 
 interface MobileBottomNavProps {
   activeTab: TabId;
-  setActiveTab: (tab: TabId) => void;
+  setActiveTab?: (tab: TabId) => void;
+  onSelectTab?: (tab: TabId) => void;
   onOpenAddWarga: () => void;
   onOpenMenuSheet: () => void;
   onOpenAiModal?: () => void;
   currentUser?: UserSession | null;
-  profilRt: ProfilRt;
+  profilRt?: ProfilRt;
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   activeTab,
   setActiveTab,
+  onSelectTab,
   onOpenAddWarga,
   onOpenMenuSheet,
   onOpenAiModal,
   currentUser,
   profilRt,
 }) => {
-  const theme = profilRt.themeConfig || {
+  const handleSelectTab = (tab: TabId) => {
+    if (setActiveTab) setActiveTab(tab);
+    if (onSelectTab) onSelectTab(tab);
+  };
+
+  const theme = profilRt?.themeConfig || {
     warnaUtama: '#c59239',
     warnaSidebar: '#27150c',
   };
@@ -46,7 +53,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <div className="h-16 px-2 flex items-center justify-around relative max-w-lg mx-auto">
         {/* 1. Tab: Warga */}
         <button
-          onClick={() => setActiveTab('warga')}
+          onClick={() => handleSelectTab('warga')}
           className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all tap-bounce cursor-pointer ${
             activeTab === 'warga' ? 'text-amber-800' : 'text-stone-500 hover:text-stone-800'
           }`}
@@ -69,7 +76,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
         {/* 2. Tab: Kartu Keluarga */}
         <button
-          onClick={() => setActiveTab('kk')}
+          onClick={() => handleSelectTab('kk')}
           className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all tap-bounce cursor-pointer ${
             activeTab === 'kk' ? 'text-amber-800' : 'text-stone-500 hover:text-stone-800'
           }`}
@@ -110,7 +117,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
         {/* 4. Tab: Kas RT */}
         <button
-          onClick={() => setActiveTab('kas')}
+          onClick={() => handleSelectTab('kas')}
           className={`flex-1 flex flex-col items-center justify-center py-1 rounded-xl transition-all tap-bounce cursor-pointer ${
             activeTab === 'kas' ? 'text-amber-800' : 'text-stone-500 hover:text-stone-800'
           }`}

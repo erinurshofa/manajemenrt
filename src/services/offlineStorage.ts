@@ -91,7 +91,10 @@ export async function saveCollectionToIndexedDb(
     // Bersihkan data lama lalu masukkan yang terbaru
     store.clear();
     items.forEach(item => {
-      store.put(item);
+      if (item && typeof item === 'object') {
+        const key = item.id || item.nik || item.username || item.nomorRt || `item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+        store.put({ id: key, ...item });
+      }
     });
 
     return new Promise((resolve, reject) => {
@@ -114,7 +117,10 @@ export async function saveSingleItemToIndexedDb(
     const db = await openDB();
     const tx = db.transaction(storeName, 'readwrite');
     const store = tx.objectStore(storeName);
-    store.put(item);
+    if (item && typeof item === 'object') {
+      const key = item.id || 'default_profil';
+      store.put({ id: key, ...item });
+    }
 
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();

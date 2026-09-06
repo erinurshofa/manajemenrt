@@ -857,10 +857,13 @@ export default function App() {
       {/* World-class Native Mobile Bottom Navigation Bar */}
       <MobileBottomNav
         activeTab={activeTab}
+        setActiveTab={setActiveTab}
         onSelectTab={setActiveTab}
         onOpenAddWarga={handleOpenAddWarga}
         onOpenAiModal={() => setIsAiModalOpen(true)}
         onOpenMenuSheet={() => setIsMobileMenuSheetOpen(true)}
+        currentUser={currentUser}
+        profilRt={profilRt}
       />
 
       {/* World-class Native Mobile Action Sheet for Secondary Menu */}
@@ -869,6 +872,7 @@ export default function App() {
         onClose={() => setIsMobileMenuSheetOpen(false)}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
+        profilRt={profilRt}
         currentUser={currentUser}
         onLogout={handleLogout}
         onOpenLogin={() => setIsLoginModalOpen(true)}
