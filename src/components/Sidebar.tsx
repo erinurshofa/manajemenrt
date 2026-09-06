@@ -126,8 +126,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         style={{ backgroundColor: theme.warnaSidebar }}
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 text-amber-100 flex flex-col shrink-0 transform transition-transform duration-200 ease-in-out no-print border-r border-amber-900/40 relative shadow-xl ${
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        className={`fixed md:static inset-y-0 left-0 z-50 w-64 text-amber-100 flex-col shrink-0 transform transition-transform duration-200 ease-in-out no-print border-r border-amber-900/40 shadow-xl ${
+          isMobileOpen ? 'flex translate-x-0' : 'hidden md:flex -translate-x-full md:translate-x-0'
         }`}
       >
         {/* Subtle traditional batik kawung pattern SVG watermark */}
