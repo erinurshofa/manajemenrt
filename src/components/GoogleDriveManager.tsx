@@ -32,6 +32,8 @@ import {
   ShieldCheck,
   Copy,
   FolderInput,
+  Eye,
+  Sparkles,
 } from 'lucide-react';
 import {
   DriveFile,
@@ -86,6 +88,8 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
   const [publicFolderId, setPublicFolderId] = useState<string>(getCustomFolderId());
   const [tempFolderInput, setTempFolderInput] = useState<string>(getCustomFolderId());
   const [publicViewMode, setPublicViewMode] = useState<'grid' | 'list'>('grid');
+  const [publicSubView, setPublicSubView] = useState<'embed' | 'interactive'>('embed');
+  const [iframeRefreshKey, setIframeRefreshKey] = useState<number>(0);
   const [isFolderSettingsOpen, setIsFolderSettingsOpen] = useState<boolean>(false);
 
   const handleSavePublicFolderId = (e: React.FormEvent) => {
@@ -96,6 +100,7 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
     setIsFolderSettingsOpen(false);
     setSuccessMessage(cleanId ? 'ID Folder Google Drive berhasil disimpan!' : 'Pengaturan folder dikosongkan.');
     setTimeout(() => setSuccessMessage(null), 3500);
+    setIframeRefreshKey(prev => prev + 1);
   };
 
   // Auth state
@@ -241,6 +246,36 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
     }
   };
 
+  // Switch to interactive view for RT Public Folder
+  const handleSwitchToInteractive = () => {
+    setPublicSubView('interactive');
+    if (publicFolderId) {
+      setCurrentFolderId(publicFolderId);
+      setFolderHistory([
+        { id: publicFolderId, name: 'Folder Terbuka RT 02' },
+      ]);
+      if (!needsAuth) {
+        loadFiles(publicFolderId);
+      }
+    }
+  };
+
+  const handleSwitchToEmbed = () => {
+    setPublicSubView('embed');
+    setIframeRefreshKey(prev => prev + 1);
+  };
+
+  const handleOpenRtFolderInManage = () => {
+    if (publicFolderId) {
+      setCurrentFolderId(publicFolderId);
+      setFolderHistory([
+        { id: 'root', name: 'Google Drive Saya' },
+        { id: publicFolderId, name: 'Folder Terbuka RT 02' },
+      ]);
+      loadFiles(publicFolderId);
+    }
+  };
+
   // Create Folder
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -248,13 +283,14 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
 
     setIsLoading(true);
     try {
-      const parent = currentFolderId && currentFolderId !== 'root' ? currentFolderId : undefined;
+      const parent = currentFolderId && currentFolderId !== 'root' ? currentFolderId : (publicFolderId || undefined);
       await createDriveFolder(newFolderName.trim(), parent);
       setNewFolderName('');
       setIsNewFolderOpen(false);
       setSuccessMessage(`Folder "${newFolderName}" berhasil dibuat!`);
       setTimeout(() => setSuccessMessage(null), 3000);
-      loadFiles(currentFolderId);
+      setIframeRefreshKey(prev => prev + 1);
+      loadFiles(currentFolderId || publicFolderId);
     } catch (err: any) {
       setErrorMessage(err.message || 'Gagal membuat folder di Google Drive.');
     } finally {
@@ -263,18 +299,33 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
   };
 
   // Upload Local File
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    targetFolderOverride?: string
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (needsAuth) {
+      setErrorMessage('Untuk mengunggah berkas ke Google Drive, silakan Masuk dengan Akun Google (Pengurus) terlebih dahulu.');
+      return;
+    }
+
+    const parent =
+      targetFolderOverride !== undefined
+        ? targetFolderOverride
+        : currentFolderId && currentFolderId !== 'root'
+        ? currentFolderId
+        : (publicFolderId || undefined);
 
     setIsUploading(true);
     setErrorMessage(null);
     try {
-      const parent = currentFolderId && currentFolderId !== 'root' ? currentFolderId : undefined;
       await uploadDriveFile(file, file.name, file.type, parent);
       setSuccessMessage(`Berkas "${file.name}" berhasil diunggah ke Google Drive!`);
       setTimeout(() => setSuccessMessage(null), 4000);
-      loadFiles(currentFolderId);
+      setIframeRefreshKey(prev => prev + 1);
+      loadFiles(parent || currentFolderId);
     } catch (err: any) {
       setErrorMessage(err.message || 'Gagal mengunggah berkas ke Google Drive.');
     } finally {
@@ -296,17 +347,28 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
     setIsDragOver(false);
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent, targetFolderOverride?: string) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
+
+    if (needsAuth) {
+      setErrorMessage('Untuk mengunggah berkas melalui Drag & Drop, silakan Masuk dengan Akun Google (Pengurus) terlebih dahulu.');
+      return;
+    }
+
+    const parent =
+      targetFolderOverride !== undefined
+        ? targetFolderOverride
+        : currentFolderId && currentFolderId !== 'root'
+        ? currentFolderId
+        : (publicFolderId || undefined);
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFiles = Array.from(e.dataTransfer.files);
       setIsUploading(true);
       setErrorMessage(null);
       try {
-        const parent = currentFolderId && currentFolderId !== 'root' ? currentFolderId : undefined;
         let successCount = 0;
         for (const file of droppedFiles) {
           await uploadDriveFile(file, file.name, file.type, parent);
@@ -314,7 +376,8 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
         }
         setSuccessMessage(`Berhasil mengunggah ${successCount} berkas melalui Drag & Drop ke Google Drive!`);
         setTimeout(() => setSuccessMessage(null), 4000);
-        loadFiles(currentFolderId);
+        setIframeRefreshKey(prev => prev + 1);
+        loadFiles(parent || currentFolderId);
       } catch (err: any) {
         setErrorMessage(err.message || 'Gagal mengunggah berkas via Drag & Drop.');
       } finally {
@@ -328,14 +391,15 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
     setIsCopying(file.id);
     setErrorMessage(null);
     try {
-      const parent = currentFolderId && currentFolderId !== 'root' ? currentFolderId : undefined;
+      const parent = currentFolderId && currentFolderId !== 'root' ? currentFolderId : (publicFolderId || undefined);
       const copyName = file.name.includes('.')
         ? file.name.replace(/(\.[^.]+)$/, ' (Salinan)$1')
         : `${file.name} (Salinan)`;
       await copyDriveFile(file.id, copyName, parent);
       setSuccessMessage(`Berkas "${file.name}" berhasil disalin!`);
       setTimeout(() => setSuccessMessage(null), 3000);
-      loadFiles(currentFolderId);
+      setIframeRefreshKey(prev => prev + 1);
+      loadFiles(currentFolderId || publicFolderId);
     } catch (err: any) {
       setErrorMessage(err.message || 'Gagal menyalin berkas.');
     } finally {
@@ -349,13 +413,14 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
     setIsMoving(true);
     setErrorMessage(null);
     try {
-      const oldParent = currentFolderId && currentFolderId !== 'root' ? currentFolderId : undefined;
+      const oldParent = currentFolderId && currentFolderId !== 'root' ? currentFolderId : (publicFolderId || undefined);
       const newParent = targetMoveFolderId;
       await moveDriveFile(fileToMove.id, newParent, oldParent);
       setSuccessMessage(`Berkas "${fileToMove.name}" berhasil dipindahkan!`);
       setTimeout(() => setSuccessMessage(null), 3000);
       setFileToMove(null);
-      loadFiles(currentFolderId);
+      setIframeRefreshKey(prev => prev + 1);
+      loadFiles(currentFolderId || publicFolderId);
     } catch (err: any) {
       setErrorMessage(err.message || 'Gagal memindahkan berkas.');
     } finally {
@@ -462,7 +527,8 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
       setSuccessMessage(`Berkas "${fileToDelete.name}" berhasil dihapus dari Google Drive.`);
       setTimeout(() => setSuccessMessage(null), 3000);
       setFileToDelete(null);
-      loadFiles(currentFolderId);
+      setIframeRefreshKey(prev => prev + 1);
+      loadFiles(currentFolderId || publicFolderId);
     } catch (err: any) {
       setErrorMessage(err.message || 'Gagal menghapus berkas dari Google Drive.');
     } finally {
@@ -480,7 +546,11 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
   const handleBreadcrumbClick = (index: number) => {
     const target = folderHistory[index];
     setFolderHistory(prev => prev.slice(0, index + 1));
-    setCurrentFolderId(target.id === 'root' ? undefined : target.id);
+    if (target.id === 'root') {
+      setCurrentFolderId(undefined);
+    } else {
+      setCurrentFolderId(target.id);
+    }
   };
 
   // Filtered files
@@ -537,6 +607,224 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
     if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
     return `${(num / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  // Reusable File Browser Component (Digunakan di Folder Publik Interaktif dan Kelola Data)
+  const renderFileBrowser = () => (
+    <div className="bg-white rounded-2xl border border-stone-200 shadow-2xs overflow-hidden">
+      {/* Top Toolbar */}
+      <div className="p-4 border-b border-stone-200 space-y-3 bg-stone-50/50">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <nav className="flex items-center gap-1.5 text-xs font-medium text-stone-600">
+            {folderHistory.map((f, idx) => (
+              <React.Fragment key={f.id}>
+                {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-stone-400" />}
+                <button
+                  onClick={() => handleBreadcrumbClick(idx)}
+                  className={`hover:text-amber-700 transition-colors py-1 px-1.5 rounded-md hover:bg-stone-200/60 ${
+                    idx === folderHistory.length - 1
+                      ? 'font-bold text-stone-900 bg-stone-200/80'
+                      : ''
+                  }`}
+                >
+                  {idx === 0 ? (
+                    <span className="flex items-center gap-1">
+                      {f.id === 'root' ? <HardDrive className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5 text-amber-700" />}
+                      <span>{f.name}</span>
+                    </span>
+                  ) : (
+                    f.name
+                  )}
+                </button>
+              </React.Fragment>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-2">
+            <button
+              id="btn-refresh-drive"
+              onClick={() => loadFiles(currentFolderId)}
+              disabled={isLoading}
+              className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 rounded-lg transition-all cursor-pointer"
+              title="Segarkan daftar file"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Search & Filter Controls */}
+        <div className="flex flex-col sm:flex-row gap-2.5 items-center justify-between">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Cari berkas di Google Drive..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-stone-300 text-xs focus:ring-2 focus:ring-amber-600 focus:border-amber-600 bg-white"
+            />
+          </div>
+
+          {/* Filter chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+            {(
+              [
+                { id: 'all', label: 'Semua' },
+                { id: 'folder', label: 'Folder' },
+                { id: 'doc', label: 'Dokumen' },
+                { id: 'sheet', label: 'Spreadsheet' },
+                { id: 'pdf', label: 'PDF' },
+                { id: 'image', label: 'Gambar' },
+              ] as const
+            ).map(filter => (
+              <button
+                key={filter.id}
+                onClick={() => setActiveFilter(filter.id)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                  activeFilter === filter.id
+                    ? 'bg-amber-700 text-white shadow-2xs'
+                    : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Files List / Grid */}
+      <div className="p-4">
+        {isLoading ? (
+          <div className="py-16 text-center space-y-3">
+            <div className="w-8 h-8 border-3 border-amber-700 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-xs text-stone-500 font-medium">Memuat berkas Google Drive...</p>
+          </div>
+        ) : filteredFiles.length === 0 ? (
+          <div className="py-16 text-center space-y-3 max-w-sm mx-auto">
+            <div className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center mx-auto text-stone-400">
+              <Cloud className="w-6 h-6" />
+            </div>
+            <p className="text-sm font-semibold text-stone-800">Tidak ada berkas yang ditemukan</p>
+            <p className="text-xs text-stone-500">
+              Folder ini masih kosong atau tidak ada berkas yang sesuai dengan kata kunci pencarian.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {filteredFiles.map(file => {
+              const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+
+              return (
+                <div
+                  key={file.id}
+                  className="p-3.5 rounded-xl border border-stone-200/80 bg-stone-50/40 hover:bg-white hover:border-amber-300/80 hover:shadow-sm transition-all group flex flex-col justify-between"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div
+                        onClick={() => isFolder && handleOpenFolder(file)}
+                        className={`p-2 rounded-lg bg-white border border-stone-200/80 shadow-2xs ${
+                          isFolder ? 'cursor-pointer hover:bg-amber-50' : ''
+                        }`}
+                      >
+                        {renderFileIcon(file)}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+                        {/* Copy Button (hanya berkas) */}
+                        {!isFolder && (
+                          <button
+                            onClick={() => handleCopyFile(file)}
+                            disabled={isCopying === file.id}
+                            className="p-1.5 text-stone-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                            title="Salin / Duplikasi Berkas"
+                          >
+                            <Copy className={`w-3.5 h-3.5 ${isCopying === file.id ? 'animate-spin' : ''}`} />
+                          </button>
+                        )}
+
+                        {/* Move Button */}
+                        <button
+                          onClick={() => {
+                            setFileToMove(file);
+                            setTargetMoveFolderId(currentFolderId && currentFolderId !== 'root' ? currentFolderId : (publicFolderId || 'root'));
+                          }}
+                          className="p-1.5 text-stone-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                          title="Pindahkan Berkas/Folder ke Folder Lain"
+                        >
+                          <FolderInput className="w-3.5 h-3.5" />
+                        </button>
+
+                        {file.webViewLink && (
+                          <a
+                            href={file.webViewLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-stone-500 hover:text-amber-700 hover:bg-stone-100 rounded-lg transition-colors"
+                            title="Buka di Google Drive"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        {file.webContentLink && (
+                          <a
+                            href={file.webContentLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-stone-500 hover:text-emerald-700 hover:bg-stone-100 rounded-lg transition-colors"
+                            title="Unduh Berkas"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        <button
+                          id={`btn-delete-${file.id}`}
+                          onClick={() => setFileToDelete(file)}
+                          className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="Hapus Berkas dari Google Drive"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => isFolder && handleOpenFolder(file)}
+                      className={isFolder ? 'cursor-pointer' : ''}
+                    >
+                      <h3
+                        className={`text-xs font-semibold text-stone-900 line-clamp-2 ${
+                          isFolder ? 'hover:text-amber-700' : ''
+                        }`}
+                        title={file.name}
+                      >
+                        {file.name}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="pt-2.5 mt-2.5 border-t border-stone-200/60 flex items-center justify-between text-[10px] text-stone-500">
+                    <span>{isFolder ? 'Folder' : formatFileSize(file.size)}</span>
+                    <span>
+                      {file.modifiedTime
+                        ? new Date(file.modifiedTime).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                          })
+                        : '-'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -685,9 +973,10 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
         )}
       </div>
 
-      {/* 1. TAMPILAN FOLDER PUBLIK (LANGSUNG TANPA SIGN-IN) */}
+      {/* 1. TAMPILAN FOLDER PUBLIK / RT 02 */}
       {activeDriveTab === 'public' && (
         <div className="space-y-4">
+          {/* Sub Header & Switcher */}
           <div className="bg-white p-4 rounded-xl border border-stone-200 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-amber-50 rounded-lg text-amber-800 border border-amber-200">
@@ -697,94 +986,332 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
                 <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
                   <span>Folder Berkas & Dokumen Terbuka RT 02</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300">
-                    Bebas Akses Tanpa Sign-In
+                    {publicSubView === 'embed' ? 'Bebas Akses Tanpa Sign-In' : 'Mode Pengelola Interaktif'}
                   </span>
                 </h3>
                 <p className="text-xs text-stone-500">
-                  Warga & pengurus dapat langsung membuka, melihat pratinjau, dan mendownload berkas di sini.
+                  {publicSubView === 'embed'
+                    ? 'Warga & pengurus dapat langsung melihat pratinjau, mengunduh, dan drag & drop berkas ke sini.'
+                    : 'Pengurus dapat mengunggah (drag & drop), membuat folder, memindahkan, menyalin, dan menghapus berkas.'}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Switch View: Embed vs Interactive */}
               <div className="flex items-center p-1 bg-stone-100 rounded-lg border border-stone-200 text-xs font-medium">
                 <button
-                  onClick={() => setPublicViewMode('grid')}
-                  className={`px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer transition-colors ${
-                    publicViewMode === 'grid' ? 'bg-white text-stone-900 font-semibold shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+                  onClick={handleSwitchToEmbed}
+                  className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer transition-colors ${
+                    publicSubView === 'embed'
+                      ? 'bg-white text-stone-900 font-semibold shadow-2xs'
+                      : 'text-stone-600 hover:text-stone-900'
                   }`}
-                  title="Tampilan Kotak"
+                  title="Tampilan Pratinjau Google Drive Bawaan"
                 >
-                  <Grid className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Grid</span>
+                  <Eye className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Pratinjau Drive</span>
                 </button>
                 <button
-                  onClick={() => setPublicViewMode('list')}
-                  className={`px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer transition-colors ${
-                    publicViewMode === 'list' ? 'bg-white text-stone-900 font-semibold shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+                  onClick={handleSwitchToInteractive}
+                  className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer transition-colors ${
+                    publicSubView === 'interactive'
+                      ? 'bg-white text-stone-900 font-semibold shadow-2xs'
+                      : 'text-stone-600 hover:text-stone-900'
                   }`}
-                  title="Tampilan Daftar"
+                  title="Pengelola Berkas RT (Drag & Drop, Pindah, Salin, Hapus, Buat Folder)"
                 >
-                  <List className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">List</span>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Pengelola Lengkap</span>
                 </button>
               </div>
+
+              {publicSubView === 'embed' && (
+                <div className="flex items-center p-1 bg-stone-100 rounded-lg border border-stone-200 text-xs font-medium">
+                  <button
+                    onClick={() => setPublicViewMode('grid')}
+                    className={`px-2 py-1 rounded flex items-center gap-1 cursor-pointer transition-colors ${
+                      publicViewMode === 'grid' ? 'bg-white text-stone-900 font-semibold shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                    title="Tampilan Kotak"
+                  >
+                    <Grid className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setPublicViewMode('list')}
+                    className={`px-2 py-1 rounded flex items-center gap-1 cursor-pointer transition-colors ${
+                      publicViewMode === 'list' ? 'bg-white text-stone-900 font-semibold shadow-2xs' : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                    title="Tampilan Daftar"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
-          {publicFolderId ? (
-            <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm flex flex-col">
-              <div className="bg-stone-50/90 px-4 py-2 border-b border-stone-200 flex items-center justify-between text-xs text-stone-500">
-                <span className="font-mono text-[11px] truncate max-w-md">
-                  ID Folder: <span className="text-stone-700 font-semibold">{publicFolderId}</span>
-                </span>
-                <span className="text-emerald-700 font-medium flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> Siap Diakses Langsung
-                </span>
-              </div>
-              <div className="relative w-full h-[650px] bg-stone-100">
-                <iframe
-                  src={`https://drive.google.com/embeddedfolderview?id=${publicFolderId}#${publicViewMode}`}
-                  title="Google Drive Folder RT Gasem Raya 02"
-                  className="w-full h-full border-0"
-                  allow="autoplay"
-                />
-              </div>
-              <div className="p-3 bg-amber-50/70 border-t border-amber-200/60 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5">
-                  <Info className="w-4 h-4 text-amber-700 shrink-0" />
-                  <span>
-                    Jika berkas tidak muncul di dalam frame, pastikan akses folder di Google Drive disetel: <b>"Siapa saja yang memiliki link"</b> &rarr; <b>Pelihat</b>.
-                  </span>
-                </span>
-                <a
-                  href={`https://drive.google.com/drive/folders/${publicFolderId}?usp=sharing`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-amber-800 hover:text-amber-950 font-semibold underline shrink-0 inline-flex items-center gap-1"
-                >
-                  Buka Folder di Tab Baru <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border-2 border-dashed border-amber-200 p-8 text-center space-y-4 shadow-2xs">
-              <div className="w-14 h-14 bg-amber-50 rounded-2xl border border-amber-200 flex items-center justify-center mx-auto text-amber-700">
-                <Folder className="w-7 h-7" />
-              </div>
-              <div className="max-w-md mx-auto space-y-1">
-                <h3 className="text-base font-bold text-stone-900">Folder Belum Diatur</h3>
-                <p className="text-xs text-stone-600 leading-relaxed">
-                  Masukkan link atau ID folder Google Drive RT Anda agar isi foldernya langsung tampil di sini tanpa warga harus login.
-                </p>
-              </div>
-              <button
-                onClick={() => setIsFolderSettingsOpen(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-800 hover:bg-amber-900 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-              >
-                <Settings className="w-4 h-4" />
-                <span>Atur Link / ID Folder Google Drive</span>
-              </button>
+          {/* SUB-VIEW 1: EMBED VIEW DENGAN DRAG & DROP UPLOAD ZONE */}
+          {publicSubView === 'embed' && (
+            <>
+              {publicFolderId ? (
+                <div className="space-y-3">
+                  {/* Drag & Drop Upload Zone on Public View */}
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={e => handleDrop(e, publicFolderId)}
+                    className={`rounded-2xl border-2 border-dashed p-4 text-center transition-all ${
+                      isDragOver
+                        ? 'border-amber-600 bg-amber-50/95 scale-[1.008] shadow-md'
+                        : 'border-stone-300 hover:border-amber-500/70 bg-stone-50/70 hover:bg-stone-50'
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      multiple
+                      id="drag-drop-input-public"
+                      onChange={e => handleFileUpload(e, publicFolderId)}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="drag-drop-input-public"
+                      className="cursor-pointer flex flex-col sm:flex-row items-center justify-between gap-3 px-2"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+                            isDragOver
+                              ? 'bg-amber-700 text-white animate-bounce'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          <UploadCloud className="w-5 h-5" />
+                        </div>
+                        <div className="text-left space-y-0.5">
+                          <p className="text-xs sm:text-sm font-bold text-stone-800">
+                            {isDragOver
+                              ? 'Lepaskan Berkas di Sini untuk Mengunggah ke Folder RT 02!'
+                              : 'Tarik & Letakkan (Drag & Drop) Berkas ke Sini untuk Mengunggah'}
+                          </p>
+                          <p className="text-[11px] text-stone-500">
+                            Langsung tersimpan ke Folder RT 02, atau{' '}
+                            <span className="text-amber-700 font-semibold underline">klik untuk pilih berkas</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {isUploading && (
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 bg-amber-100 px-3 py-1.5 rounded-lg">
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Mengunggah...
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSwitchToInteractive();
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-white border border-stone-300 hover:bg-stone-100 text-[11px] font-semibold text-stone-700 shadow-2xs transition-colors cursor-pointer flex items-center gap-1"
+                          title="Buka Pengelola Berkas Lengkap"
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-700" />
+                          <span>Pindah / Salin / Hapus Berkas</span>
+                        </button>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Embedded Iframe Container */}
+                  <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm flex flex-col">
+                    <div className="bg-stone-50/90 px-4 py-2 border-b border-stone-200 flex items-center justify-between text-xs text-stone-500">
+                      <span className="font-mono text-[11px] truncate max-w-md">
+                        ID Folder: <span className="text-stone-700 font-semibold">{publicFolderId}</span>
+                      </span>
+                      <div className="flex items-center gap-2 text-emerald-700 font-medium">
+                        <button
+                          onClick={() => setIframeRefreshKey(prev => prev + 1)}
+                          className="hover:text-emerald-900 p-1 rounded hover:bg-emerald-50 transition-colors cursor-pointer"
+                          title="Segarkan Pratinjau Google"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" /> Siap Diakses Langsung
+                        </span>
+                      </div>
+                    </div>
+                    <div className="relative w-full h-[650px] bg-stone-100">
+                      <iframe
+                        key={iframeRefreshKey}
+                        src={`https://drive.google.com/embeddedfolderview?id=${publicFolderId}#${publicViewMode}`}
+                        title="Google Drive Folder RT Gasem Raya 02"
+                        className="w-full h-full border-0"
+                        allow="autoplay"
+                      />
+                    </div>
+                    <div className="p-3 bg-amber-50/70 border-t border-amber-200/60 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5">
+                        <Info className="w-4 h-4 text-amber-700 shrink-0" />
+                        <span>
+                          Kotak pratinjau Google di atas diproteksi khusus untuk pelihat. Untuk memindahkan, menyalin, membuat folder, atau menghapus berkas, klik tombol <b>Pengelola Lengkap</b> di atas.
+                        </span>
+                      </span>
+                      <a
+                        href={`https://drive.google.com/drive/folders/${publicFolderId}?usp=sharing`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-amber-800 hover:text-amber-950 font-semibold underline shrink-0 inline-flex items-center gap-1"
+                      >
+                        Buka Folder di Tab Baru <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border-2 border-dashed border-amber-200 p-8 text-center space-y-4 shadow-2xs">
+                  <div className="w-14 h-14 bg-amber-50 rounded-2xl border border-amber-200 flex items-center justify-center mx-auto text-amber-700">
+                    <Folder className="w-7 h-7" />
+                  </div>
+                  <div className="max-w-md mx-auto space-y-1">
+                    <h3 className="text-base font-bold text-stone-900">Folder Belum Diatur</h3>
+                    <p className="text-xs text-stone-600 leading-relaxed">
+                      Masukkan link atau ID folder Google Drive RT Anda agar isi foldernya langsung tampil di sini tanpa warga harus login.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsFolderSettingsOpen(true)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-800 hover:bg-amber-900 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>Atur Link / ID Folder Google Drive</span>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* SUB-VIEW 2: INTERACTIVE FILE MANAGER (DRAG & DROP, BUAT FOLDER, PINDAH, SALIN, HAPUS) */}
+          {publicSubView === 'interactive' && (
+            <div className="space-y-4">
+              {needsAuth ? (
+                <div className="bg-white rounded-2xl border border-stone-200 p-8 text-center shadow-2xs space-y-5 max-w-xl mx-auto my-4">
+                  <div className="w-16 h-16 bg-amber-50 rounded-2xl border border-amber-200/80 flex items-center justify-center mx-auto text-amber-700 shadow-2xs">
+                    <Sparkles className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-lg font-bold text-stone-900">
+                      Masuk dengan Google (Pengurus RT)
+                    </h2>
+                    <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
+                      Untuk mengunggah berkas via Drag & Drop, membuat folder baru, menyalin, memindahkan, atau menghapus berkas di Folder RT 02, Google Drive API memerlukan otentikasi akun Google Pengurus.
+                    </p>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      onClick={handleGoogleLogin}
+                      disabled={isLoggingIn}
+                      className="inline-flex items-center gap-3 px-6 py-3 rounded-xl font-medium text-sm text-stone-700 bg-white border border-stone-300 hover:bg-stone-50 active:bg-stone-100 shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                    >
+                      <svg className="w-5 h-5" viewBox="0 0 48 48">
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                        <path fill="none" d="M0 0h48v48H0z" />
+                      </svg>
+                      <span>{isLoggingIn ? 'Menghubungkan...' : 'Sign in with Google (Pengurus)'}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Action Bar for Interactive RT Folder */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-amber-50/60 p-3 rounded-xl border border-amber-200/80">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-amber-950">Lokasi:</span>
+                      <span className="text-xs font-semibold px-2.5 py-1 bg-amber-100 text-amber-900 rounded-lg border border-amber-200 flex items-center gap-1.5">
+                        <Folder className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Folder Berkas RT 02</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsNewFolderOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-800 hover:bg-amber-900 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <FolderPlus className="w-3.5 h-3.5" />
+                        <span>Buat Folder Baru</span>
+                      </button>
+                      <button
+                        onClick={() => loadFiles(currentFolderId)}
+                        disabled={isLoading}
+                        className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-white rounded-lg border border-stone-200 transition-all cursor-pointer"
+                        title="Segarkan Berkas"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Drag & Drop Upload Zone */}
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={e => handleDrop(e, currentFolderId || publicFolderId)}
+                    className={`rounded-2xl border-2 border-dashed p-6 text-center transition-all ${
+                      isDragOver
+                        ? 'border-amber-600 bg-amber-50/90 scale-[1.01] shadow-md'
+                        : 'border-stone-300 hover:border-amber-500/70 bg-stone-50/60 hover:bg-stone-50/90'
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      multiple
+                      id="drag-drop-input-interactive"
+                      onChange={e => handleFileUpload(e, currentFolderId || publicFolderId)}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="drag-drop-input-interactive"
+                      className="cursor-pointer flex flex-col items-center justify-center gap-2"
+                    >
+                      <div
+                        className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                          isDragOver
+                            ? 'bg-amber-700 text-white animate-bounce'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        <UploadCloud className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-bold text-stone-800">
+                          {isDragOver
+                            ? 'Lepaskan Berkas di Sini untuk Mengunggah Langsung!'
+                            : 'Tarik & Letakkan (Drag and Drop) Berkas ke Sini'}
+                        </p>
+                        <p className="text-xs text-stone-500">
+                          Mendukung banyak file sekaligus, atau{' '}
+                          <span className="text-amber-700 font-semibold underline">
+                            klik untuk pilih dari komputer / HP
+                          </span>
+                        </p>
+                      </div>
+                      {isUploading && (
+                        <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-amber-800 bg-amber-100/90 px-3 py-1 rounded-full">
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Sedang mengunggah berkas...
+                        </div>
+                      )}
+                    </label>
+                  </div>
+
+                  {/* Browser Container Render */}
+                  {renderFileBrowser()}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -922,6 +1449,30 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
             </button>
           </div>
 
+          {/* Shortcut to RT 02 Public Folder */}
+          {publicFolderId && (
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-amber-50 to-orange-50 p-3.5 rounded-xl border border-amber-200 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-100 rounded-lg text-amber-800">
+                  <Folder className="w-4 h-4 text-amber-700" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-amber-950">Folder Berkas & Dokumen Terbuka RT 02</div>
+                  <div className="text-[11px] text-amber-800">
+                    ID: <span className="font-mono font-semibold">{publicFolderId}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleOpenRtFolderInManage}
+                className="px-3.5 py-1.5 rounded-lg bg-amber-800 hover:bg-amber-900 text-white text-xs font-semibold shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Buka & Kelola Folder RT 02</span>
+              </button>
+            </div>
+          )}
+
           {/* Drag & Drop Upload Zone */}
           <div
             onDragOver={handleDragOver}
@@ -975,222 +1526,9 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
           </div>
 
           {/* Browser Container */}
-          <div className="bg-white rounded-2xl border border-stone-200 shadow-2xs overflow-hidden">
-            {/* Top Toolbar */}
-            <div className="p-4 border-b border-stone-200 space-y-3 bg-stone-50/50">
-              {/* Breadcrumb Navigation */}
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <nav className="flex items-center gap-1.5 text-xs font-medium text-stone-600">
-                  {folderHistory.map((f, idx) => (
-                    <React.Fragment key={f.id}>
-                      {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-stone-400" />}
-                      <button
-                        onClick={() => handleBreadcrumbClick(idx)}
-                        className={`hover:text-amber-700 transition-colors py-1 px-1.5 rounded-md hover:bg-stone-200/60 ${
-                          idx === folderHistory.length - 1
-                            ? 'font-bold text-stone-900 bg-stone-200/80'
-                            : ''
-                        }`}
-                      >
-                        {idx === 0 ? (
-                          <span className="flex items-center gap-1">
-                            <HardDrive className="w-3.5 h-3.5" />
-                            <span>{f.name}</span>
-                          </span>
-                        ) : (
-                          f.name
-                        )}
-                      </button>
-                    </React.Fragment>
-                  ))}
-                </nav>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    id="btn-refresh-drive"
-                    onClick={() => loadFiles(currentFolderId)}
-                    disabled={isLoading}
-                    className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 rounded-lg transition-all"
-                    title="Segarkan daftar file"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Search & Filter Controls */}
-              <div className="flex flex-col sm:flex-row gap-2.5 items-center justify-between">
-                <div className="relative w-full sm:w-80">
-                  <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Cari berkas di Google Drive..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-stone-300 text-xs focus:ring-2 focus:ring-amber-600 focus:border-amber-600 bg-white"
-                  />
-                </div>
-
-                {/* Filter chips */}
-                <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                  {(
-                    [
-                      { id: 'all', label: 'Semua' },
-                      { id: 'folder', label: 'Folder' },
-                      { id: 'doc', label: 'Dokumen' },
-                      { id: 'sheet', label: 'Spreadsheet' },
-                      { id: 'pdf', label: 'PDF' },
-                      { id: 'image', label: 'Gambar' },
-                    ] as const
-                  ).map(filter => (
-                    <button
-                      key={filter.id}
-                      onClick={() => setActiveFilter(filter.id)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                        activeFilter === filter.id
-                          ? 'bg-amber-700 text-white shadow-2xs'
-                          : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
-                      }`}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Files List / Grid */}
-            <div className="p-4">
-              {isLoading ? (
-                <div className="py-16 text-center space-y-3">
-                  <div className="w-8 h-8 border-3 border-amber-700 border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="text-xs text-stone-500 font-medium">Memuat berkas Google Drive...</p>
-                </div>
-              ) : filteredFiles.length === 0 ? (
-                <div className="py-16 text-center space-y-3 max-w-sm mx-auto">
-                  <div className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center mx-auto text-stone-400">
-                    <Cloud className="w-6 h-6" />
-                  </div>
-                  <p className="text-sm font-semibold text-stone-800">Tidak ada berkas yang ditemukan</p>
-                  <p className="text-xs text-stone-500">
-                    Folder ini masih kosong atau tidak ada berkas yang sesuai dengan kata kunci pencarian.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {filteredFiles.map(file => {
-                    const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
-
-                    return (
-                      <div
-                        key={file.id}
-                        className="p-3.5 rounded-xl border border-stone-200/80 bg-stone-50/40 hover:bg-white hover:border-amber-300/80 hover:shadow-sm transition-all group flex flex-col justify-between"
-                      >
-                        <div className="space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div
-                              onClick={() => isFolder && handleOpenFolder(file)}
-                              className={`p-2 rounded-lg bg-white border border-stone-200/80 shadow-2xs ${
-                                isFolder ? 'cursor-pointer hover:bg-amber-50' : ''
-                              }`}
-                            >
-                              {renderFileIcon(file)}
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100">
-                              {/* Copy Button (hanya berkas) */}
-                              {!isFolder && (
-                                <button
-                                  onClick={() => handleCopyFile(file)}
-                                  disabled={isCopying === file.id}
-                                  className="p-1.5 text-stone-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
-                                  title="Salin / Duplikasi Berkas"
-                                >
-                                  <Copy className={`w-3.5 h-3.5 ${isCopying === file.id ? 'animate-spin' : ''}`} />
-                                </button>
-                              )}
-
-                              {/* Move Button */}
-                              <button
-                                onClick={() => {
-                                  setFileToMove(file);
-                                  setTargetMoveFolderId(currentFolderId && currentFolderId !== 'root' ? currentFolderId : 'root');
-                                }}
-                                className="p-1.5 text-stone-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                                title="Pindahkan Berkas/Folder ke Folder Lain"
-                              >
-                                <FolderInput className="w-3.5 h-3.5" />
-                              </button>
-
-                              {file.webViewLink && (
-                                <a
-                                  href={file.webViewLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1.5 text-stone-500 hover:text-amber-700 hover:bg-stone-100 rounded-lg transition-colors"
-                                  title="Buka di Google Drive"
-                                >
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                </a>
-                              )}
-                              {file.webContentLink && (
-                                <a
-                                  href={file.webContentLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1.5 text-stone-500 hover:text-emerald-700 hover:bg-stone-100 rounded-lg transition-colors"
-                                  title="Unduh Berkas"
-                                >
-                                  <Download className="w-3.5 h-3.5" />
-                                </a>
-                              )}
-                              <button
-                                id={`btn-delete-${file.id}`}
-                                onClick={() => setFileToDelete(file)}
-                                className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                                title="Hapus Berkas dari Google Drive"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          <div
-                            onClick={() => isFolder && handleOpenFolder(file)}
-                            className={isFolder ? 'cursor-pointer' : ''}
-                          >
-                            <h3
-                              className={`text-xs font-semibold text-stone-900 line-clamp-2 ${
-                                isFolder ? 'hover:text-amber-700' : ''
-                              }`}
-                              title={file.name}
-                            >
-                              {file.name}
-                            </h3>
-                          </div>
-                        </div>
-
-                        <div className="pt-2.5 mt-2.5 border-t border-stone-200/60 flex items-center justify-between text-[10px] text-stone-500">
-                          <span>{isFolder ? 'Folder' : formatFileSize(file.size)}</span>
-                          <span>
-                            {file.modifiedTime
-                              ? new Date(file.modifiedTime).toLocaleDateString('id-ID', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                })
-                              : '-'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              </div>
-            </div>
-          </div>
-        )}
+          {renderFileBrowser()}
+        </div>
+      )}
       </>
     )}
 
@@ -1390,7 +1728,10 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
                 className="w-full px-3 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none bg-white"
               >
                 <option value="root">📂 Folder Utama (Google Drive Saya / Root)</option>
-                {configuredFolderId && (
+                {publicFolderId && (
+                  <option value={publicFolderId}>📁 Folder Berkas & Dokumen Terbuka RT 02</option>
+                )}
+                {configuredFolderId && configuredFolderId !== publicFolderId && (
                   <option value={configuredFolderId}>📂 Folder Khusus RT Gasem (Kustom)</option>
                 )}
                 {files
