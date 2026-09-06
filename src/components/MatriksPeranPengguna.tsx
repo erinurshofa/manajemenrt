@@ -159,10 +159,15 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
     setIsModalOpen(false);
   };
 
-  // Hapus akun dengan proteksi
+  // Hapus akun dengan proteksi dinamis
   const handleDelete = (cred: UserCredential) => {
-    if (cred.nik === 'developer' || cred.nik === 'gasemraya02') {
-      alert('Akun sistem utama tidak dapat dihapus demi keamanan aplikasi.');
+    if (currentUser?.nik && cred.nik.toLowerCase() === currentUser.nik.toLowerCase()) {
+      alert('Anda tidak dapat menghapus akun yang sedang Anda gunakan untuk login saat ini.');
+      return;
+    }
+    const adminCount = credentials.filter(c => c.role === 'developer' || c.role === 'ketua_rt' || c.role === 'admin').length;
+    if ((cred.role === 'developer' || cred.role === 'ketua_rt' || cred.role === 'admin') && adminCount <= 1) {
+      alert('Tidak dapat menghapus satu-satunya akun Administrator / Developer yang tersisa di sistem.');
       return;
     }
     if (confirm(`Yakin ingin menghapus akun "${cred.nama}" (${cred.nik})? Pengguna ini tidak akan bisa login lagi.`)) {
@@ -608,7 +613,7 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="Misal: bendahara02 atau NIK warga"
+                  placeholder="Misal: nama_pengguna atau NIK warga"
                   value={formNik}
                   disabled={!!editingCred}
                   onChange={e => setFormNik(e.target.value)}

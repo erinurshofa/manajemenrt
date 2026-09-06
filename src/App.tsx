@@ -91,16 +91,7 @@ if (typeof window !== 'undefined') {
   localKeys.forEach(k => localStorage.removeItem(k));
 }
 
-const DEFAULT_ADMIN_USER: UserSession = {
-  nik: 'gasemraya02',
-  nama: 'GASEM RAYA RT 02',
-  role: 'admin',
-  jabatan: 'Ketua RT (Admin RT 02)',
-  noKk: '3276010101100002',
-  alamat: 'Jl. Gasem Raya RT 02 / RW 04, Kel. Tlogosari Wetan, Kec. Pedurungan, Kota Semarang 50196',
-  noHp: '0812-3456-7890',
-  loginAt: new Date().toISOString(),
-};
+
 
 export default function App() {
   // Pure State (Direct Supabase Cloud storage, no local persistence)
@@ -590,6 +581,7 @@ export default function App() {
           totalWarga={daftarWarga.length}
           totalKk={daftarKk.length}
           credentials={credentials}
+          onTambahCredential={handleTambahCredential}
         />
         <AndroidApkModal
           isOpen={isAndroidApkModalOpen}

@@ -84,48 +84,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         }
       }
 
-      // 2. Fallback Developer Root
-      if (cleanUsername.toLowerCase() === 'developer' && cleanPass === 'dev0204') {
+      // 2. Cek variabel lingkungan .env opsional jika dikonfigurasi
+      const envAdminUser = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_INITIAL_ADMIN_USER || import.meta.env?.VITE_ADMIN_USER)) || '';
+      const envAdminPass = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_INITIAL_ADMIN_PASS || import.meta.env?.VITE_ADMIN_PASSWORD)) || '';
+      if (envAdminUser && envAdminPass && cleanUsername.toLowerCase() === envAdminUser.toLowerCase() && cleanPass === envAdminPass) {
         const session: UserSession = {
-          nik: 'developer',
-          nama: 'Developer / Superadmin RT',
+          nik: envAdminUser,
+          nama: 'Administrator Sistem',
           role: 'developer',
-          jabatan: 'System Engineer / Developer',
-          alamat: 'Root Console',
-          loginAt: new Date().toISOString(),
-        };
-        onLoginSuccess(session);
-        onClose();
-        return;
-      }
-
-      // 3. Fallback Pimpinan RT
-      if (
-        cleanUsername.toLowerCase() === 'gasemraya02' &&
-        (cleanPass === 'gasem0204' || cleanPass === '0204' || cleanPass === 'adminrt02')
-      ) {
-        const session: UserSession = {
-          nik: 'gasemraya02',
-          nama: 'GASEM RAYA RT 02',
-          role: 'ketua_rt',
-          jabatan: 'Ketua RT (Pimpinan)',
-          noKk: '3276010101100002',
-          alamat: `Jl. Gasem Raya RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}, Kel. ${profilRt.desaKelurahan || 'Tlogosari Wetan'}, Kec. ${profilRt.kecamatan || 'Pedurungan'}`,
-          noHp: profilRt.nomorKontak || '0812-3456-7890',
-          loginAt: new Date().toISOString(),
-        };
-        onLoginSuccess(session);
-        onClose();
-        return;
-      }
-
-      // 4. Fallback Sekretaris & Bendahara default
-      if (cleanUsername.toLowerCase() === 'sekretaris02' && cleanPass === 'sekretaris02') {
-        const session: UserSession = {
-          nik: 'sekretaris02',
-          nama: 'Sekretariat RT 02',
-          role: 'sekretaris',
-          jabatan: 'Sekretaris RT',
+          jabatan: 'System Administrator & Developer',
           alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}`,
           loginAt: new Date().toISOString(),
         };
@@ -134,21 +101,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         return;
       }
 
-      if (cleanUsername.toLowerCase() === 'bendahara02' && cleanPass === 'bendahara02') {
-        const session: UserSession = {
-          nik: 'bendahara02',
-          nama: 'Bendahara Keuangan RT 02',
-          role: 'bendahara',
-          jabatan: 'Bendahara RT',
-          alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}`,
-          loginAt: new Date().toISOString(),
-        };
-        onLoginSuccess(session);
-        onClose();
-        return;
-      }
-
-      setErrorMessage(res.error || 'Username atau password tidak cocok.');
+      setErrorMessage(res.error || 'Username atau kata sandi tidak cocok. Silakan periksa kembali akun Anda.');
     } catch (err: any) {
       setErrorMessage(err?.message || 'Gagal menghubungi server autentikasi.');
     } finally {

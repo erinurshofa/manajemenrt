@@ -29,8 +29,9 @@ import {
   Send,
   Database,
   Sparkles,
+  UserPlus,
 } from 'lucide-react';
-import { UserSession, ProfilRt, UserCredential } from '../types';
+import { UserSession, ProfilRt, UserCredential, UserRole } from '../types';
 import { BatikLogo } from './BatikLogo';
 import { loginWithSupabase } from '../services/supabaseAuth';
 
@@ -42,6 +43,7 @@ interface LoginScreenProps {
   totalWarga?: number;
   totalKk?: number;
   credentials?: UserCredential[];
+  onTambahCredential?: (cred: UserCredential) => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
@@ -52,12 +54,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   totalWarga = 25,
   totalKk = 9,
   credentials,
+  onTambahCredential,
 }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [quickCopied, setQuickCopied] = useState(false);
+
+  // Mode Inisialisasi Akun Pertama (First-Time Setup)
+  const hasAccounts = Boolean(credentials && credentials.length > 0);
+  const [isSetupMode, setIsSetupMode] = useState(false);
+
+  const [setupNik, setSetupNik] = useState('');
+  const [setupNama, setSetupNama] = useState('');
+  const [setupPass, setSetupPass] = useState('');
+  const [setupConfirm, setSetupConfirm] = useState('');
+  const [setupRole, setSetupRole] = useState<UserRole>('developer');
+  const [setupShowPass, setSetupShowPass] = useState(false);
 
   const loginCardRef = useRef<HTMLDivElement>(null);
   const usernameInputRef = useRef<HTMLInputElement>(null);
@@ -114,7 +128,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         return;
       }
 
-      // 1. Cek terhadap daftar akun pengguna tersimpan
+      // 1. Cek terhadap daftar akun pengguna tersimpan di Database / IndexedDB
       if (credentials && credentials.length > 0) {
         const matched = credentials.find(
           c => c.nik.toLowerCase() === cleanUsername.toLowerCase() && c.password === cleanPassword
@@ -134,72 +148,79 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         }
       }
 
-      // 2. Fallback Developer Root
-      if (cleanUsername.toLowerCase() === 'developer' && cleanPassword === 'dev0204') {
+      // 2. Cek variabel lingkungan .env opsional jika dikonfigurasi
+      const envAdminUser = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_INITIAL_ADMIN_USER || import.meta.env?.VITE_ADMIN_USER)) || '';
+      const envAdminPass = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_INITIAL_ADMIN_PASS || import.meta.env?.VITE_ADMIN_PASSWORD)) || '';
+      if (envAdminUser && envAdminPass && cleanUsername.toLowerCase() === envAdminUser.toLowerCase() && cleanPassword === envAdminPass) {
         const session: UserSession = {
-          nik: 'developer',
-          nama: 'Developer / Superadmin RT',
+          nik: envAdminUser,
+          nama: 'Administrator Sistem',
           role: 'developer',
-          jabatan: 'System Engineer / Developer',
-          alamat: 'Root Console',
+          jabatan: 'System Administrator & Developer',
+          alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}, ${profilRt.desaKelurahan || 'Gasem Raya'}`,
+          noHp: profilRt.nomorKontak,
           loginAt: new Date().toISOString(),
         };
         onLoginSuccess(session);
         return;
       }
 
-      // 3. Fallback Pimpinan RT
-      if (
-        cleanUsername.toLowerCase() === 'gasemraya02' &&
-        (cleanPassword === 'gasem0204' || cleanPassword === '0204' || cleanPassword === 'adminrt02')
-      ) {
-        const session: UserSession = {
-          nik: 'gasemraya02',
-          nama: 'GASEM RAYA RT 02',
-          role: 'ketua_rt',
-          jabatan: 'Ketua RT (Pimpinan)',
-          noKk: '3276010101100002',
-          alamat: `Jl. Gasem Raya RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}, Kel. ${profilRt.desaKelurahan || 'Tlogosari Wetan'}, Kec. ${profilRt.kecamatan || 'Pedurungan'}`,
-          noHp: profilRt.nomorKontak || '0812-3456-7890',
-          loginAt: new Date().toISOString(),
-        };
-        onLoginSuccess(session);
-        return;
-      }
-
-      // 4. Fallback Sekretaris & Bendahara default
-      if (cleanUsername.toLowerCase() === 'sekretaris02' && cleanPassword === 'sekretaris02') {
-        const session: UserSession = {
-          nik: 'sekretaris02',
-          nama: 'Sekretariat RT 02',
-          role: 'sekretaris',
-          jabatan: 'Sekretaris RT',
-          alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}`,
-          loginAt: new Date().toISOString(),
-        };
-        onLoginSuccess(session);
-        return;
-      }
-
-      if (cleanUsername.toLowerCase() === 'bendahara02' && cleanPassword === 'bendahara02') {
-        const session: UserSession = {
-          nik: 'bendahara02',
-          nama: 'Bendahara Keuangan RT 02',
-          role: 'bendahara',
-          jabatan: 'Bendahara RT',
-          alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}`,
-          loginAt: new Date().toISOString(),
-        };
-        onLoginSuccess(session);
-        return;
-      }
-
-      setErrorMessage(res.error || 'Username atau password salah. Silakan periksa kembali akun login Anda.');
+      setErrorMessage(res.error || 'Username atau password tidak cocok. Silakan periksa kembali akun login Anda.');
     } catch (err: any) {
       setErrorMessage(err?.message || 'Gagal menghubungi server autentikasi.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSetupSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    const cleanNik = setupNik.trim().toLowerCase();
+    const cleanNama = setupNama.trim();
+    const cleanPass = setupPass.trim();
+
+    if (!cleanNik || !cleanNama || !cleanPass) {
+      setErrorMessage('Harap lengkapi semua isian akun.');
+      return;
+    }
+
+    if (cleanPass.length < 4) {
+      setErrorMessage('Kata sandi minimal 4 karakter demi keamanan.');
+      return;
+    }
+
+    if (cleanPass !== setupConfirm.trim()) {
+      setErrorMessage('Konfirmasi kata sandi tidak cocok.');
+      return;
+    }
+
+    const newCred: UserCredential = {
+      id: `cred-${Date.now()}`,
+      nik: cleanNik,
+      password: cleanPass,
+      nama: cleanNama,
+      role: setupRole,
+      jabatan: setupRole === 'developer' ? 'Developer / Superadmin RT' : 'Ketua RT (Pimpinan)',
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+
+    if (onTambahCredential) {
+      onTambahCredential(newCred);
+    }
+
+    const session: UserSession = {
+      nik: newCred.nik,
+      nama: newCred.nama,
+      role: newCred.role,
+      jabatan: newCred.jabatan || 'Pengurus RT 02',
+      alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}, ${profilRt.desaKelurahan || 'Gasem Raya'}`,
+      noHp: profilRt.nomorKontak,
+      loginAt: new Date().toISOString(),
+    };
+
+    onLoginSuccess(session);
   };
 
   const currentDateFormatted = new Intl.DateTimeFormat('id-ID', {
@@ -475,14 +496,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <div className="px-6 pt-6 pb-5 bg-gradient-to-r from-[#2c1408] via-[#3e1d0d] to-[#250f05] text-amber-100 border-b border-amber-600/40 relative">
                   <div className="flex items-center gap-3 relative z-10">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-stone-950 font-bold shadow border border-amber-400/50 shrink-0">
-                      <Lock className="w-5 h-5" />
+                      {isSetupMode || !hasAccounts ? <UserPlus className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
                     </div>
                     <div>
                       <h2 className="text-base sm:text-lg font-bold font-serif text-white tracking-wide">
-                        Masuk ke Menu Sistem
+                        {isSetupMode || !hasAccounts ? 'Inisialisasi Akun Utama' : 'Masuk ke Menu Sistem'}
                       </h2>
                       <p className="text-xs text-amber-200/80">
-                        Masukkan akun untuk membuka seluruh menu RT 02
+                        {isSetupMode || !hasAccounts
+                          ? 'Daftarkan akun administrator pertama untuk mengamankan portal'
+                          : 'Masukkan akun resmi untuk membuka seluruh menu RT 02'}
                       </p>
                     </div>
                   </div>
@@ -499,93 +522,249 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     >
                       <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-bold">Gagal Masuk</p>
+                        <p className="font-bold">Perhatian</p>
                         <p className="mt-0.5">{errorMessage}</p>
                       </div>
                     </div>
                   )}
 
-                  {/* Form */}
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    
-                    {/* Input Username */}
-                    <div>
-                      <label
-                        htmlFor="input-username"
-                        className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1"
-                      >
-                        Username
-                      </label>
-                      <div className="relative">
-                        <input
-                          ref={usernameInputRef}
-                          id="input-username"
-                          type="text"
-                          autoComplete="username"
-                          value={username}
-                          onChange={e => {
-                            setUsername(e.target.value);
-                            setErrorMessage(null);
-                          }}
-                          placeholder="Masukkan username atau email pengurus"
-                          className="w-full px-4 py-2.5 pl-10 text-sm font-medium bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
-                          required
-                        />
-                        <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
+                  {/* Mode: Inisialisasi Akun Pertama (Jika belum ada akun tersimpan atau mode setup aktif) */}
+                  {isSetupMode || !hasAccounts ? (
+                    <form onSubmit={handleSetupSubmit} className="space-y-3.5">
+                      <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <p>
+                          Sistem belum memiliki akun administrator. Tentukan username dan kata sandi pilihan Anda untuk memulai.
+                        </p>
                       </div>
-                    </div>
 
-                    {/* Input Password */}
-                    <div>
-                      <label
-                        htmlFor="input-password"
-                        className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1"
-                      >
-                        Password
-                      </label>
-                      <div className="relative">
+                      {/* Input Username */}
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1">
+                          Username / NIK Akun
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={setupNik}
+                            onChange={e => setSetupNik(e.target.value)}
+                            placeholder="Contoh: username_admin atau NIK"
+                            className="w-full px-3.5 py-2 pl-10 text-sm font-medium bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
+                            required
+                          />
+                          <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-2.5" />
+                        </div>
+                      </div>
+
+                      {/* Input Nama Lengkap */}
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1">
+                          Nama Lengkap
+                        </label>
                         <input
-                          id="input-password"
-                          type={showPassword ? 'text' : 'password'}
-                          autoComplete="current-password"
-                          value={password}
-                          onChange={e => {
-                            setPassword(e.target.value);
-                            setErrorMessage(null);
-                          }}
-                          placeholder="Masukkan kata sandi"
-                          className="w-full px-4 py-2.5 pl-10 pr-10 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
+                          type="text"
+                          value={setupNama}
+                          onChange={e => setSetupNama(e.target.value)}
+                          placeholder="Nama lengkap penanggung jawab"
+                          className="w-full px-3.5 py-2 text-sm font-medium bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
                           required
                         />
-                        <Lock className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
+                      </div>
+
+                      {/* Pilihan Peran */}
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1">
+                          Hak Akses Peran
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSetupRole('developer')}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all text-left flex flex-col gap-0.5 ${
+                              setupRole === 'developer'
+                                ? 'bg-amber-100 border-amber-600 text-amber-950 shadow-xs'
+                                : 'bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100'
+                            }`}
+                          >
+                            <span>Developer</span>
+                            <span className="text-[10px] font-normal text-stone-500">Superadmin & Diagnostik</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSetupRole('ketua_rt')}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all text-left flex flex-col gap-0.5 ${
+                              setupRole === 'ketua_rt'
+                                ? 'bg-amber-100 border-amber-600 text-amber-950 shadow-xs'
+                                : 'bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100'
+                            }`}
+                          >
+                            <span>Ketua RT</span>
+                            <span className="text-[10px] font-normal text-stone-500">Pimpinan & Pengelola RT</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Input Kata Sandi */}
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1">
+                          Kata Sandi Baru
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={setupShowPass ? 'text' : 'password'}
+                            value={setupPass}
+                            onChange={e => setSetupPass(e.target.value)}
+                            placeholder="Minimal 4 karakter"
+                            className="w-full px-3.5 py-2 pl-10 pr-10 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
+                            required
+                          />
+                          <Lock className="w-4 h-4 text-stone-400 absolute left-3.5 top-2.5" />
+                          <button
+                            type="button"
+                            onClick={() => setSetupShowPass(!setupShowPass)}
+                            className="absolute right-3 top-2 text-stone-400 hover:text-stone-700 p-1"
+                          >
+                            {setupShowPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Konfirmasi Kata Sandi */}
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1">
+                          Konfirmasi Kata Sandi
+                        </label>
+                        <input
+                          type={setupShowPass ? 'text' : 'password'}
+                          value={setupConfirm}
+                          onChange={e => setSetupConfirm(e.target.value)}
+                          placeholder="Ulangi kata sandi di atas"
+                          className="w-full px-3.5 py-2 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
+                          required
+                        />
+                      </div>
+
+                      {/* Submit Setup */}
+                      <button
+                        type="submit"
+                        className="w-full py-3 px-4 rounded-xl text-stone-950 font-bold text-sm shadow-md bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] mt-2"
+                      >
+                        <UserPlus className="w-4 h-4 text-stone-950" />
+                        <span>Daftarkan Akun & Buka Sistem →</span>
+                      </button>
+
+                      {hasAccounts && (
+                        <div className="text-center pt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsSetupMode(false);
+                              setErrorMessage(null);
+                            }}
+                            className="text-xs font-medium text-amber-800 hover:text-amber-950 underline cursor-pointer"
+                          >
+                            ← Kembali ke Form Login
+                          </button>
+                        </div>
+                      )}
+                    </form>
+                  ) : (
+                    /* Mode: Form Login Normal */
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      
+                      {/* Input Username */}
+                      <div>
+                        <label
+                          htmlFor="input-username"
+                          className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1"
+                        >
+                          Username
+                        </label>
+                        <div className="relative">
+                          <input
+                            ref={usernameInputRef}
+                            id="input-username"
+                            type="text"
+                            autoComplete="username"
+                            value={username}
+                            onChange={e => {
+                              setUsername(e.target.value);
+                              setErrorMessage(null);
+                            }}
+                            placeholder="Masukkan username atau NIK akun"
+                            className="w-full px-4 py-2.5 pl-10 text-sm font-medium bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
+                            required
+                          />
+                          <User className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
+                        </div>
+                      </div>
+
+                      {/* Input Password */}
+                      <div>
+                        <label
+                          htmlFor="input-password"
+                          className="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1"
+                        >
+                          Password
+                        </label>
+                        <div className="relative">
+                          <input
+                            id="input-password"
+                            type={showPassword ? 'text' : 'password'}
+                            autoComplete="current-password"
+                            value={password}
+                            onChange={e => {
+                              setPassword(e.target.value);
+                              setErrorMessage(null);
+                            }}
+                            placeholder="Masukkan kata sandi"
+                            className="w-full px-4 py-2.5 pl-10 pr-10 text-sm bg-stone-50 border border-stone-300 rounded-xl focus:bg-white focus:border-amber-600 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
+                            required
+                          />
+                          <Lock className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-700 p-1 rounded-md transition-colors"
+                            title={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Submit Button */}
+                      <button
+                        id="btn-login-submit"
+                        type="submit"
+                        className="w-full py-3 px-4 rounded-xl text-stone-950 font-bold text-sm shadow-md bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                      >
+                        <LogIn className="w-4 h-4 text-stone-950" />
+                        <span>Buka Kunci & Masuk ke Menu →</span>
+                      </button>
+
+                      {/* Switch to Setup Mode */}
+                      <div className="text-center pt-1">
                         <button
                           type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-700 p-1 rounded-md transition-colors"
-                          title={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                          onClick={() => {
+                            setIsSetupMode(true);
+                            setErrorMessage(null);
+                          }}
+                          className="text-[11px] font-medium text-stone-500 hover:text-amber-800 transition-colors cursor-pointer"
                         >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          Daftarkan Akun Administrator Baru
                         </button>
                       </div>
-                    </div>
-
-                    {/* Submit Button */}
-                    <button
-                      id="btn-login-submit"
-                      type="submit"
-                      className="w-full py-3 px-4 rounded-xl text-stone-950 font-bold text-sm shadow-md bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
-                    >
-                      <LogIn className="w-4 h-4 text-stone-950" />
-                      <span>Buka Kunci & Masuk ke Menu →</span>
-                    </button>
-                  </form>
+                    </form>
+                  )}
 
                   {/* Keterangan Akun */}
                   <div className="pt-2">
                     <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-[11px] text-stone-700 leading-relaxed flex items-start gap-2">
                       <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
                       <p>
-                        Akses aman: Masuk menggunakan akun administrator RT 02 untuk membuka menu administrasi, kas, dan surat RT.
+                        Akses aman: Kredensial akun dikelola secara dinamis & terenkripsi di penyimpanan basis data.
                       </p>
                     </div>
                   </div>
