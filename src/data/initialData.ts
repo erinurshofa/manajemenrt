@@ -119,11 +119,44 @@ export const DEFAULT_PROFIL_RT: ProfilRt = {
 
 export const INITIAL_CREDENTIALS: UserCredential[] = [
   {
+    id: 'cred-dev',
+    nik: 'developer',
+    password: 'dev0204',
+    nama: 'Developer / Superadmin RT',
+    role: 'developer',
+    jabatan: 'System Engineer / Developer',
+    noHp: '0812-0000-0000',
+    createdAt: '2026-09-01',
+  },
+  {
+    id: 'cred-ketua',
     nik: 'gasemraya02',
     password: 'gasem0204',
     nama: 'GASEM RAYA RT 02',
-    role: 'admin',
-    jabatan: 'Admin RT 02',
+    role: 'ketua_rt',
+    jabatan: 'Ketua RT (Pimpinan)',
+    noHp: '0812-3456-7890',
+    createdAt: '2026-09-01',
+  },
+  {
+    id: 'cred-sekre',
+    nik: 'sekretaris02',
+    password: 'sekretaris02',
+    nama: 'Sekretariat RT 02',
+    role: 'sekretaris',
+    jabatan: 'Sekretaris RT',
+    noHp: '0813-2222-3333',
+    createdAt: '2026-09-01',
+  },
+  {
+    id: 'cred-benda',
+    nik: 'bendahara02',
+    password: 'bendahara02',
+    nama: 'Bendahara Keuangan RT 02',
+    role: 'bendahara',
+    jabatan: 'Bendahara RT',
+    noHp: '0815-4444-5555',
+    createdAt: '2026-09-01',
   },
 ];
 

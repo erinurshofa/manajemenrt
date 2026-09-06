@@ -78,6 +78,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         return 'Rekapitulasi Kependudukan Bulanan';
       case 'mutasi':
         return 'Catatan Mutasi & Peristiwa Kependudukan';
+      case 'pengguna':
+        return 'Matriks Hak Akses Peran & Manajemen Pengguna';
     }
   };
 

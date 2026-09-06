@@ -22,6 +22,7 @@ import { SupabaseConfigModal } from './components/SupabaseConfigModal';
 import { AsistenAiModal } from './components/AsistenAiModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { MobileMenuSheet } from './components/MobileMenuSheet';
+import { MatriksPeranPengguna } from './components/MatriksPeranPengguna';
 import { Sparkles } from 'lucide-react';
 import { GoogleDriveManager } from './components/GoogleDriveManager';
 import { usePWAInstall } from './hooks/usePWAInstall';
@@ -534,6 +535,19 @@ export default function App() {
     syncPengurusDelete(id);
   };
 
+  // Handlers Kredensial / Akun Pengguna (RBAC & Developer Management)
+  const handleTambahCredential = (cred: UserCredential) => {
+    setCredentials(prev => [...prev.filter(c => c.nik !== cred.nik), cred]);
+  };
+
+  const handleEditCredential = (cred: UserCredential) => {
+    setCredentials(prev => prev.map(c => (c.nik === cred.nik ? cred : c)));
+  };
+
+  const handleHapusCredential = (nik: string) => {
+    setCredentials(prev => prev.filter(c => c.nik !== nik));
+  };
+
   // Reset & Import
   const handleResetData = () => {
     setDaftarWarga(INITIAL_WARGA);
@@ -575,6 +589,7 @@ export default function App() {
           onOpenShareOnline={() => setIsShareOnlineModalOpen(true)}
           totalWarga={daftarWarga.length}
           totalKk={daftarKk.length}
+          credentials={credentials}
         />
         <AndroidApkModal
           isOpen={isAndroidApkModalOpen}
@@ -740,6 +755,22 @@ export default function App() {
               onTambahMutasi={handleTambahMutasi}
               onHapusMutasi={handleHapusMutasi}
               currentUser={currentUser}
+            />
+          )}
+
+          {/* Tab 8: Matriks Hak Akses Peran & Manajemen Pengguna (Developer & Pengurus) */}
+          {activeTab === 'pengguna' && (
+            <MatriksPeranPengguna
+              credentials={credentials}
+              onTambahCredential={handleTambahCredential}
+              onEditCredential={handleEditCredential}
+              onHapusCredential={handleHapusCredential}
+              currentUser={currentUser}
+              profilRt={profilRt}
+              isSupabaseConnected={isSupabaseConnected}
+              totalWarga={daftarWarga.length}
+              totalKk={daftarKk.length}
+              totalKas={daftarKas.length}
             />
           )}
         </main>

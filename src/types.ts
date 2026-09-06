@@ -87,10 +87,19 @@ export interface ThemeConfig {
   tampilkanMotifBatik: boolean;
 }
 
+export type UserRole =
+  | 'developer'
+  | 'ketua_rt'
+  | 'sekretaris'
+  | 'bendahara'
+  | 'pengurus'
+  | 'warga'
+  | 'admin';
+
 export interface UserSession {
   nik: string;
   nama: string;
-  role: 'admin' | 'pengurus' | 'warga';
+  role: UserRole;
   jabatan: string;
   noKk?: string;
   alamat?: string;
@@ -99,11 +108,14 @@ export interface UserSession {
 }
 
 export interface UserCredential {
+  id?: string;
   nik: string;
   password: string;
   nama: string;
-  role: 'admin' | 'pengurus' | 'warga';
+  role: UserRole;
   jabatan?: string;
+  noHp?: string;
+  createdAt?: string;
 }
 
 export interface ProfilRt {

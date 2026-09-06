@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { TabId } from './Sidebar';
 import { ProfilRt, UserSession } from '../types';
+import { isAdminOrLeader } from '../utils/permissions';
 
 interface MobileMenuSheetProps {
   isOpen: boolean;
@@ -170,6 +171,22 @@ export const MobileMenuSheet: React.FC<MobileMenuSheetProps> = ({
           {
             title: 'Pengaturan Khusus Pengurus',
             items: [
+              ...(isAdminOrLeader(currentUser?.role)
+                ? [
+                    {
+                      id: 'pengguna' as TabId,
+                      label: 'Matriks Hak Akses & Pengguna',
+                      desc: 'Kelola akun pengguna, kata sandi, dan pembagian peran RBAC',
+                      icon: ShieldCheck,
+                      color: 'from-rose-700 to-amber-900',
+                      badge: 'RBAC',
+                      onClick: () => {
+                        onSelectTab('pengguna');
+                        onClose();
+                      },
+                    },
+                  ]
+                : []),
               {
                 id: 'theme',
                 label: 'Kustomisasi Tema & Logo Batik',

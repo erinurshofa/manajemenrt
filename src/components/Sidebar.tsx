@@ -19,8 +19,18 @@ import {
 } from 'lucide-react';
 import { ProfilRt, UserSession } from '../types';
 import { BatikLogo } from './BatikLogo';
+import { isAdminOrLeader } from '../utils/permissions';
 
-export type TabId = 'warga' | 'kk' | 'kas' | 'dokumen' | 'drive' | 'pengurus' | 'laporan' | 'mutasi';
+export type TabId =
+  | 'warga'
+  | 'kk'
+  | 'kas'
+  | 'dokumen'
+  | 'drive'
+  | 'pengurus'
+  | 'laporan'
+  | 'mutasi'
+  | 'pengguna';
 
 interface SidebarProps {
   profilRt: ProfilRt;
@@ -101,9 +111,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Mutasi Penduduk',
       icon: History,
     },
+    ...(isAdminOrLeader(currentUser?.role)
+      ? [
+          {
+            id: 'pengguna' as const,
+            label: 'Matriks & Pengguna',
+            icon: ShieldCheck,
+            badge: 'RBAC',
+          },
+        ]
+      : []),
   ];
 
-  const isAdminOrPengurus = currentUser?.role === 'admin' || currentUser?.role === 'pengurus';
+  const isAdminOrPengurus =
+    currentUser?.role && currentUser.role !== 'warga';
 
   const userInitials = currentUser?.nama
     ? currentUser.nama

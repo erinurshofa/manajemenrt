@@ -30,7 +30,7 @@ import {
   Database,
   Sparkles,
 } from 'lucide-react';
-import { UserSession, ProfilRt } from '../types';
+import { UserSession, ProfilRt, UserCredential } from '../types';
 import { BatikLogo } from './BatikLogo';
 import { loginWithSupabase } from '../services/supabaseAuth';
 
@@ -41,6 +41,7 @@ interface LoginScreenProps {
   onOpenShareOnline?: () => void;
   totalWarga?: number;
   totalKk?: number;
+  credentials?: UserCredential[];
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
@@ -50,6 +51,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   onOpenShareOnline,
   totalWarga = 25,
   totalKk = 9,
+  credentials,
 }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -112,16 +114,80 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         return;
       }
 
-      // Fallback transisi kredensial resmi (termasuk gasem0204)
-      if (cleanUsername.toLowerCase() === 'gasemraya02' && (cleanPassword === 'gasem0204' || cleanPassword === '0204' || cleanPassword === 'adminrt02')) {
+      // 1. Cek terhadap daftar akun pengguna tersimpan
+      if (credentials && credentials.length > 0) {
+        const matched = credentials.find(
+          c => c.nik.toLowerCase() === cleanUsername.toLowerCase() && c.password === cleanPassword
+        );
+        if (matched) {
+          const session: UserSession = {
+            nik: matched.nik,
+            nama: matched.nama,
+            role: matched.role,
+            jabatan: matched.jabatan || 'Pengurus RT 02',
+            alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}, ${profilRt.desaKelurahan || 'Gasem Raya'}`,
+            noHp: matched.noHp || profilRt.nomorKontak,
+            loginAt: new Date().toISOString(),
+          };
+          onLoginSuccess(session);
+          return;
+        }
+      }
+
+      // 2. Fallback Developer Root
+      if (cleanUsername.toLowerCase() === 'developer' && cleanPassword === 'dev0204') {
+        const session: UserSession = {
+          nik: 'developer',
+          nama: 'Developer / Superadmin RT',
+          role: 'developer',
+          jabatan: 'System Engineer / Developer',
+          alamat: 'Root Console',
+          loginAt: new Date().toISOString(),
+        };
+        onLoginSuccess(session);
+        return;
+      }
+
+      // 3. Fallback Pimpinan RT
+      if (
+        cleanUsername.toLowerCase() === 'gasemraya02' &&
+        (cleanPassword === 'gasem0204' || cleanPassword === '0204' || cleanPassword === 'adminrt02')
+      ) {
         const session: UserSession = {
           nik: 'gasemraya02',
           nama: 'GASEM RAYA RT 02',
-          role: 'admin',
-          jabatan: 'Ketua RT (Admin RT 02)',
+          role: 'ketua_rt',
+          jabatan: 'Ketua RT (Pimpinan)',
           noKk: '3276010101100002',
-          alamat: 'Jl. Gasem Raya RT 02 / RW 04, Kel. Tlogosari Wetan, Kec. Pedurungan, Kota Semarang 50196',
+          alamat: `Jl. Gasem Raya RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}, Kel. ${profilRt.desaKelurahan || 'Tlogosari Wetan'}, Kec. ${profilRt.kecamatan || 'Pedurungan'}`,
           noHp: profilRt.nomorKontak || '0812-3456-7890',
+          loginAt: new Date().toISOString(),
+        };
+        onLoginSuccess(session);
+        return;
+      }
+
+      // 4. Fallback Sekretaris & Bendahara default
+      if (cleanUsername.toLowerCase() === 'sekretaris02' && cleanPassword === 'sekretaris02') {
+        const session: UserSession = {
+          nik: 'sekretaris02',
+          nama: 'Sekretariat RT 02',
+          role: 'sekretaris',
+          jabatan: 'Sekretaris RT',
+          alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}`,
+          loginAt: new Date().toISOString(),
+        };
+        onLoginSuccess(session);
+        return;
+      }
+
+      if (cleanUsername.toLowerCase() === 'bendahara02' && cleanPassword === 'bendahara02') {
+        const session: UserSession = {
+          nik: 'bendahara02',
+          nama: 'Bendahara Keuangan RT 02',
+          role: 'bendahara',
+          jabatan: 'Bendahara RT',
+          alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}`,
           loginAt: new Date().toISOString(),
         };
         onLoginSuccess(session);
