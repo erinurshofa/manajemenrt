@@ -138,7 +138,11 @@ export default function App() {
         if (local.daftarDokumen && local.daftarDokumen.length > 0) setDaftarDokumen(local.daftarDokumen);
         if (local.daftarPengurus && local.daftarPengurus.length > 0) setDaftarPengurus(local.daftarPengurus);
         if (local.profilRt) setProfilRt(local.profilRt);
-        if (local.credentials && local.credentials.length > 0) setCredentials(local.credentials);
+        if (local.credentials && local.credentials.length > 0) {
+          setCredentials(local.credentials);
+        } else {
+          setCredentials(INITIAL_CREDENTIALS);
+        }
         setIsLocalDbLoaded(true);
       })
       .catch(err => {
