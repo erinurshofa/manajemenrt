@@ -62,15 +62,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [quickCopied, setQuickCopied] = useState(false);
 
-  // Mode Inisialisasi Akun Pertama (First-Time Setup)
+  // Keamanan Akses: Hanya jika basis data benar-benar kosong (0 akun) inisialisasi perdana dibuka
   const hasAccounts = Boolean(credentials && credentials.length > 0);
-  const [isSetupMode, setIsSetupMode] = useState(false);
 
   const [setupNik, setSetupNik] = useState('');
   const [setupNama, setSetupNama] = useState('');
   const [setupPass, setSetupPass] = useState('');
   const [setupConfirm, setSetupConfirm] = useState('');
-  const [setupRole, setSetupRole] = useState<UserRole>('developer');
+  const [setupRole, setSetupRole] = useState<UserRole>('ketua_rt');
   const [setupShowPass, setSetupShowPass] = useState(false);
 
   const loginCardRef = useRef<HTMLDivElement>(null);
@@ -176,6 +175,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const handleSetupSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    // Keamanan Ketat: Guest / Tamu dilarang membuat akun jika sistem sudah memiliki akun
+    if (hasAccounts) {
+      setErrorMessage('Akses ditolak: Tamu/Guest tidak dapat membuat akun. Hubungi Ketua RT untuk mendapatkan akses.');
+      return;
+    }
 
     const cleanNik = setupNik.trim().toLowerCase();
     const cleanNama = setupNama.trim();
@@ -496,15 +501,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <div className="px-6 pt-6 pb-5 bg-gradient-to-r from-[#2c1408] via-[#3e1d0d] to-[#250f05] text-amber-100 border-b border-amber-600/40 relative">
                   <div className="flex items-center gap-3 relative z-10">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-stone-950 font-bold shadow border border-amber-400/50 shrink-0">
-                      {isSetupMode || !hasAccounts ? <UserPlus className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                      {!hasAccounts ? <UserPlus className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
                     </div>
                     <div>
                       <h2 className="text-base sm:text-lg font-bold font-serif text-white tracking-wide">
-                        {isSetupMode || !hasAccounts ? 'Inisialisasi Akun Utama' : 'Masuk ke Menu Sistem'}
+                        {!hasAccounts ? 'Inisialisasi Sistem Perdana' : 'Masuk ke Menu Sistem'}
                       </h2>
                       <p className="text-xs text-amber-200/80">
-                        {isSetupMode || !hasAccounts
-                          ? 'Daftarkan akun administrator pertama untuk mengamankan portal'
+                        {!hasAccounts
+                          ? 'Belum ada akun di basis data. Silakan buat akun pimpinan RT perdana.'
                           : 'Masukkan akun resmi untuk membuka seluruh menu RT 02'}
                       </p>
                     </div>
@@ -528,8 +533,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     </div>
                   )}
 
-                  {/* Mode: Inisialisasi Akun Pertama (Jika belum ada akun tersimpan atau mode setup aktif) */}
-                  {isSetupMode || !hasAccounts ? (
+                  {/* Mode: Inisialisasi Darurat (HANYA terbuka jika basis data benar-benar 0 akun) */}
+                  {!hasAccounts ? (
                     <form onSubmit={handleSetupSubmit} className="space-y-3.5">
                       <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
                         <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -650,26 +655,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         className="w-full py-3 px-4 rounded-xl text-stone-950 font-bold text-sm shadow-md bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] mt-2"
                       >
                         <UserPlus className="w-4 h-4 text-stone-950" />
-                        <span>Daftarkan Akun & Buka Sistem →</span>
+                        <span>Inisialisasi Akun Utama & Buka Sistem →</span>
                       </button>
-
-                      {hasAccounts && (
-                        <div className="text-center pt-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsSetupMode(false);
-                              setErrorMessage(null);
-                            }}
-                            className="text-xs font-medium text-amber-800 hover:text-amber-950 underline cursor-pointer"
-                          >
-                            ← Kembali ke Form Login
-                          </button>
-                        </div>
-                      )}
                     </form>
                   ) : (
-                    /* Mode: Form Login Normal */
+                    /* Mode: Form Login Normal (Tamu/Guest hanya bisa login menggunakan akun resmi yang diberikan) */
                     <form onSubmit={handleSubmit} className="space-y-4">
                       
                       {/* Input Username */}
@@ -742,20 +732,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         <LogIn className="w-4 h-4 text-stone-950" />
                         <span>Buka Kunci & Masuk ke Menu →</span>
                       </button>
-
-                      {/* Switch to Setup Mode */}
-                      <div className="text-center pt-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsSetupMode(true);
-                            setErrorMessage(null);
-                          }}
-                          className="text-[11px] font-medium text-stone-500 hover:text-amber-800 transition-colors cursor-pointer"
-                        >
-                          Daftarkan Akun Administrator Baru
-                        </button>
-                      </div>
                     </form>
                   )}
 
