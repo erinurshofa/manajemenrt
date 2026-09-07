@@ -1,4 +1,4 @@
-import { Warga, MutasiRecord, TransaksiKas } from '../types';
+import { Warga, MutasiRecord, TransaksiKas, DokumenRt, PengurusRt } from '../types';
 
 /**
  * Menghasilkan kumpulan data warga dummy realistis untuk keperluan testing dan benchmarking UI.
@@ -245,6 +245,190 @@ export function generateDummyMutasi(wargaList: Warga[]): MutasiRecord[] {
       jenisMutasi: 'Pindah_Masuk',
       tanggal: new Date().toISOString().split('T')[0],
       keterangan: 'Pindah domisili resmi dari Boyolali ke RT 02 / RW 04',
+    },
+  ];
+}
+
+/**
+ * Menghasilkan data arsip dokumen RT dummy realistis
+ */
+export function generateDummyDokumen(): DokumenRt[] {
+  const timestamp = Date.now();
+  return [
+    {
+      id: `dummy-d-${timestamp}-1`,
+      judul: 'Surat Edaran Kerja Bakti Lingkungan & PSN DBD Menjelang Musim Hujan',
+      kategori: 'Surat Edaran',
+      nomorSurat: '05/SE-RT02/X/2024',
+      tanggal: '2024-10-12',
+      deskripsi: 'Pemberitahuan gotong royong massal pembersihan selokan, pemangkasan dahan pohon, dan antisipasi jentik nyamuk.',
+      namaFile: 'SE_KerjaBakti_PSN_DBD_RT02.pdf',
+      ukuranFile: '195 KB',
+      tipeFile: 'pdf',
+      isProtected: false,
+      kontenTeks: `SURAT EDARAN
+Nomor: 05/SE-RT02/X/2024
+Tentang: Kegiatan Kerja Bakti Lingkungan & Pemberantasan Sarang Nyamuk (PSN) DBD
+
+Kepada Yth.
+Bapak/Ibu Warga Gasem Raya RT 02 / RW 04
+
+Dalam rangka mengantisipasi musim hujan dan mencegah penyebaran wabah Demam Berdarah Dengue (DBD), Pengurus RT 02 mengimbau seluruh warga untuk hadir dan berpartisipasi aktif dalam kegiatan gotong royong:
+- Hari/Tanggal : Minggu, 20 Oktober 2024
+- Waktu : Pukul 06.30 WIB s/d selesai
+- Titik Kumpul : Pos Kamling Utama RT 02
+- Agenda : Pembersihan saluran drainase, penimbunan genangan air liar, pemangkasan dahan rimbun.
+
+Demikian surat edaran ini disampaikan untuk menjadi perhatian bersama.
+
+Pengurus RT 02 Gasem Raya`,
+    },
+    {
+      id: `dummy-d-${timestamp}-2`,
+      judul: 'Formulir Standar Surat Pengantar Administrasi Warga RT 02',
+      kategori: 'Formulir',
+      nomorSurat: '01/FORM-PENGANTAR/2024',
+      tanggal: '2024-03-01',
+      deskripsi: 'Template resmi surat keterangan pengantar RT untuk pengurusan KTP-el, KK baru, SKCK kepolisian, maupun domisili kelurahan.',
+      namaFile: 'Form_Surat_Pengantar_RT02.doc',
+      ukuranFile: '120 KB',
+      tipeFile: 'doc',
+      isProtected: false,
+      kontenTeks: `SURAT PENGANTAR RT
+Nomor: ..... / SP-RT02 / RW04 / .....
+
+Yang bertanda tangan di bawah ini Ketua RT 02 / RW 04 Kelurahan Tlogosari Wetan, menerangkan bahwa:
+Nama : ........................................
+NIK : ........................................
+Tempat/Tgl Lahir : ........................................
+Pekerjaan : ........................................
+Alamat : ........................................
+
+Orang tersebut di atas adalah benar-benar warga penduduk RT 02 / RW 04 dan surat pengantar ini diberikan untuk keperluan administrasi resmi.`,
+    },
+    {
+      id: `dummy-d-${timestamp}-3`,
+      judul: 'SK Pengesahan Susunan Pengurus RT 02 Periode 2024 - 2029',
+      kategori: 'SK Pengurus',
+      nomorSurat: '18/SK-KEL/TW/2024',
+      tanggal: '2024-01-20',
+      deskripsi: 'Surat Keputusan penetapan resmi lembaga kemasyarakatan rukun tetangga yang disahkan oleh Kepala Kelurahan Tlogosari Wetan.',
+      namaFile: 'SK_Pengurus_RT02_2024_2029.pdf',
+      ukuranFile: '310 KB',
+      tipeFile: 'pdf',
+      isProtected: true,
+      kontenTeks: `KEPUTUSAN LURAH TLOGOSARI WETAN
+NOMOR: 18/SK-KEL/TW/2024
+TENTANG
+PENGUKUHAN SUSUNAN PENGURUS RUKUN TETANGGA 02 RUKUN WARGA 04
+KELURAHAN TLOGOSARI WETAN KECAMATAN PEDURUNGAN KOTA SEMARANG
+MASA BHAKTI 2024 - 2029
+
+Menetapkan susunan kepengurusan RT 02 / RW 04 untuk menjalankan pelayanan warga secara transparan dan amanah.`,
+    },
+    {
+      id: `dummy-d-${timestamp}-4`,
+      judul: 'Laporan Pertanggungjawaban Kas & Neraca Keuangan Tahunan RT 02',
+      kategori: 'Laporan Keuangan',
+      nomorSurat: '02/LPJ-KEU/GR02/2024',
+      tanggal: '2024-12-31',
+      deskripsi: 'Laporan audit kas terbuka penerimaan iuran bulanan, pengeluaran ronda, dan saldo akhir tahun anggaran kas RT.',
+      namaFile: 'LPJ_Keuangan_Tahunan_RT02.pdf',
+      ukuranFile: '420 KB',
+      tipeFile: 'pdf',
+      isProtected: false,
+      kontenTeks: `LAPORAN PERTANGGUNGJAWABAN KEUANGAN KAS RT 02
+TAHUN ANGGARAN 2024
+Total Penerimaan Kas : Rp 24.500.000,-
+Total Realisasi Belanja : Rp 18.250.000,-
+Saldo Sisa Lebih Pembiayaan (SILPA) : Rp 6.250.000,-
+
+Disahkan oleh Ketua RT 02 & Bendahara Kas.`,
+    },
+    {
+      id: `dummy-d-${timestamp}-5`,
+      judul: 'Berita Acara Musyawarah Warga Penyesuaian Iuran & Peremajaan CCTV',
+      kategori: 'Peraturan RT',
+      nomorSurat: '04/BA-MUSY/RT02/2024',
+      tanggal: '2024-05-18',
+      deskripsi: 'Notulensi mufakat warga mengenai pemasangan 4 titik CCTV lingkungan dan pengadaan peralatan tenda duka.',
+      namaFile: 'Notulen_Musyawarah_Warga_CCTV.pdf',
+      ukuranFile: '165 KB',
+      tipeFile: 'text',
+      isProtected: false,
+      kontenTeks: `BERITA ACARA MUSYAWARAH WARGA RT 02
+Pada hari Sabtu, 18 Mei 2024 bertempat di Balai Pertemuan Warga, telah disepakati:
+1. Pemasangan 4 unit kamera CCTV pemantau jalan masuk.
+2. Pengalokasian dana kas RT untuk pemeliharaan rutin portal otomatis.`,
+    },
+  ];
+}
+
+/**
+ * Menghasilkan data struktur pengurus RT dummy realistis
+ */
+export function generateDummyPengurus(): PengurusRt[] {
+  const timestamp = Date.now();
+  return [
+    {
+      id: `dummy-p-${timestamp}-1`,
+      nama: 'Ir. Joko Wahyudi, M.T.',
+      jabatan: 'Wakil Ketua RT',
+      nik: '3374101806740001',
+      noHp: '0812-4455-6677',
+      alamat: 'Jl. Gasem Raya No. 04',
+      periode: '2024 - 2029',
+      tugasPokok: 'Membantu tugas operasional Ketua RT dan memimpin musyawarah warga saat Ketua RT berhalangan hadir.',
+    },
+    {
+      id: `dummy-p-${timestamp}-2`,
+      nama: 'Drs. Supriyanto',
+      jabatan: 'Sekretaris RT',
+      nik: '3374100904780002',
+      noHp: '0813-8899-0011',
+      alamat: 'Jl. Gasem Raya No. 08',
+      periode: '2024 - 2029',
+      tugasPokok: 'Mengelola ketatausahaan, registrasi kependudukan, arsip persuratan, dan notulensi musyawarah warga.',
+    },
+    {
+      id: `dummy-p-${timestamp}-3`,
+      nama: 'Dra. Hj. Siti Rochmah',
+      jabatan: 'Bendahara RT',
+      nik: '3374105102810003',
+      noHp: '0815-6677-8899',
+      alamat: 'Jl. Gasem Raya Kav. 14',
+      periode: '2024 - 2029',
+      tugasPokok: 'Menghimpun iuran warga, membukukan arus kas pemasukan dan pengeluaran, serta menyusun laporan kas bulanan.',
+    },
+    {
+      id: `dummy-p-${timestamp}-4`,
+      nama: 'Sutrisno Budiman',
+      jabatan: 'Seksi Keamanan & Ronda',
+      nik: '3374102511790004',
+      noHp: '0857-1122-3344',
+      alamat: 'Jl. Gasem Raya No. 19',
+      periode: '2024 - 2029',
+      tugasPokok: 'Mengkoordinasikan jadwal siskamling ronda malam warga, operasional portal pos kamling, dan ketertiban lingkungan.',
+    },
+    {
+      id: `dummy-p-${timestamp}-5`,
+      nama: 'Agus Setiawan, S.T.',
+      jabatan: 'Seksi Pembangunan & Sarpras',
+      nik: '3374101407830005',
+      noHp: '0818-9900-1122',
+      alamat: 'Jl. Gasem Raya Blok B No. 02',
+      periode: '2024 - 2029',
+      tugasPokok: 'Memelihara lampu penerangan jalan, saluran drainase air, fasilitas umum, dan inventaris barang milik RT.',
+    },
+    {
+      id: `dummy-p-${timestamp}-6`,
+      nama: 'Ibu Ratna Dewi, S.Pd.',
+      jabatan: 'Seksi Sosial, PKK & Pemberdayaan',
+      nik: '3374106209850006',
+      noHp: '0821-3344-5566',
+      alamat: 'Jl. Gasem Raya No. 27',
+      periode: '2024 - 2029',
+      tugasPokok: 'Mengkoordinasikan kegiatan senam sehat warga, posyandu lansia & balita, serta penyaluran dana sosial warga sakit/duka.',
     },
   ];
 }

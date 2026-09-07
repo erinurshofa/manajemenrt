@@ -35,6 +35,8 @@ import {
   generateDummyWarga,
   generateDummyKas,
   generateDummyMutasi,
+  generateDummyDokumen,
+  generateDummyPengurus,
 } from '../../utils/dummyDataGenerator';
 import {
   INITIAL_WARGA,
@@ -206,16 +208,20 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
 
   // 4. Inject Dummy Sample Data
   const handleInjectDummyData = () => {
-    if (confirm('Tambahkan data warga contoh, kas, dan mutasi untuk pengujian performa UI?')) {
+    if (confirm('Tambahkan data lengkap contoh (warga, kas, mutasi, arsip dokumen, & pengurus RT) untuk pengujian performa UI?')) {
       const dummyWarga = generateDummyWarga();
       const dummyKas = generateDummyKas();
       const dummyMutasi = generateDummyMutasi(dummyWarga);
+      const dummyDokumen = generateDummyDokumen();
+      const dummyPengurus = generateDummyPengurus();
 
       setDaftarWarga(prev => [...dummyWarga, ...prev]);
       setDaftarKas(prev => [...dummyKas, ...prev]);
       setDaftarMutasi(prev => [...dummyMutasi, ...prev]);
+      setDaftarDokumen(prev => [...dummyDokumen, ...prev]);
+      setDaftarPengurus(prev => [...dummyPengurus, ...prev]);
 
-      showNotice(`Berhasil menambahkan ${dummyWarga.length} warga contoh & 5 transaksi kas!`, 'success');
+      showNotice(`Berhasil menambahkan ${dummyWarga.length} warga, ${dummyKas.length} transaksi kas, ${dummyDokumen.length} dokumen arsip, dan ${dummyPengurus.length} pengurus contoh!`, 'success');
     }
   };
 
@@ -698,7 +704,7 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
                 <div className="p-4 rounded-xl bg-white border border-stone-200 shadow-2xs">
                   <h4 className="font-bold text-sm text-stone-900">Tambahkan Data Uji (Seeder)</h4>
                   <p className="mt-1 text-xs text-stone-600 leading-relaxed">
-                    Menyisipkan 8 warga contoh (3 KK), 5 transaksi kas rutin & pembangunan, serta 1 mutasi domisili realistis ke dalam state aplikasi.
+                    Menyisipkan 8 warga contoh (3 KK), 5 transaksi kas rutin & pembangunan, 1 mutasi domisili, 5 dokumen arsip resmi RT, serta 6 pengurus RT realistis ke dalam sistem.
                   </p>
                   <button
                     type="button"
