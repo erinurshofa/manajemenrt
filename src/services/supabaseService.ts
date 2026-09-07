@@ -398,6 +398,8 @@ export const syncWargaDelete = async (id: string) => {
     return;
   }
   try {
+    // Cascade delete riwayat mutasi terkait di Supabase
+    await supabase.from('mutasi').delete().eq('warga_id', id);
     const { error } = await supabase.from('warga').delete().eq('id', id);
     if (error) {
       console.warn('Gagal hapus warga di cloud, dialihkan ke antrean offline:', error.message);

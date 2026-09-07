@@ -290,10 +290,27 @@ export default function App() {
   };
 
   const handleHapusWarga = async (id: string, nama: string) => {
-    if (confirm(`Apakah Anda yakin ingin menghapus data warga "${nama}"?`)) {
+    const targetWarga = daftarWarga.find(w => w.id === id);
+    const targetNik = targetWarga?.nik;
+
+    const relatedMutasi = daftarMutasi.filter(
+      m => m.wargaId === id || (targetNik && m.nik === targetNik)
+    );
+
+    let confirmMsg = `Apakah Anda yakin ingin menghapus data warga "${nama}"?`;
+    if (relatedMutasi.length > 0) {
+      confirmMsg = `Warga "${nama}" memiliki ${relatedMutasi.length} catatan riwayat di menu Mutasi Penduduk.\n\nApakah Anda yakin ingin menghapus data warga ini beserta seluruh ${relatedMutasi.length} riwayat mutasinya secara permanen?`;
+    }
+
+    if (confirm(confirmMsg)) {
+      const mutasiIdsToDelete = new Set(relatedMutasi.map(m => m.id));
       setDaftarWarga(prev => prev.filter(w => w.id !== id));
-      setDaftarMutasi(prev => prev.filter(m => m.wargaId !== id));
+      setDaftarMutasi(prev => prev.filter(m => !mutasiIdsToDelete.has(m.id) && m.wargaId !== id));
+
       await syncWargaDelete(id);
+      for (const m of relatedMutasi) {
+        await syncMutasiDelete(m.id);
+      }
     }
   };
 
