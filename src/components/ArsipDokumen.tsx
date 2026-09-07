@@ -20,6 +20,7 @@ import {
 import { DokumenRt, ProfilRt, UserSession } from '../types';
 import { processAndUploadAttachment } from '../utils/imageCompressor';
 import { canManageDokumen } from '../utils/permissions';
+import { useConfirm, useToast } from '../context/NotificationContext';
 
 interface ArsipDokumenProps {
   daftarDokumen: DokumenRt[];
@@ -42,6 +43,8 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
 }) => {
   // Blindspot 1 Fix: Gunakan canManageDokumen agar Ketua RT, Sekretaris, Bendahara, Developer, & Admin dapat mengelola
   const canManage = canManageDokumen(currentUser?.role);
+  const confirmDialog = useConfirm();
+  const toast = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedKategori, setSelectedKategori] = useState<string>('SEMUA');
@@ -245,7 +248,7 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
       a.click();
       URL.revokeObjectURL(url);
     } else {
-      alert(`Mengunduh arsip dokumen ${doc.namaFile}`);
+      toast.info(`Mengunduh arsip berkas "${doc.namaFile}"`);
     }
   };
 
@@ -437,8 +440,15 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
 
                     {!doc.isProtected && canManage && (
                       <button
-                        onClick={() => {
-                          if (confirm(`Hapus berkas "${doc.judul}"?`)) {
+                        onClick={async () => {
+                          const setuju = await confirmDialog({
+                            title: 'Hapus Berkas Dokumen',
+                            message: `Apakah Anda yakin ingin menghapus dokumen "${doc.judul}"?`,
+                            variant: 'danger',
+                            confirmText: 'Ya, Hapus Dokumen',
+                            cancelText: 'Batal',
+                          });
+                          if (setuju) {
                             onHapusDokumen(doc.id);
                           }
                         }}

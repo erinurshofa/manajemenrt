@@ -1,6 +1,7 @@
 import React from 'react';
 import { TransaksiKas } from '../../types';
 import { TrendingUp, TrendingDown, Eye, Trash2, Receipt } from 'lucide-react';
+import { useConfirm } from '../../context/NotificationContext';
 
 interface KasTableProps {
   filteredKas: TransaksiKas[];
@@ -21,6 +22,8 @@ export const KasTable: React.FC<KasTableProps> = ({
   totalPemasukanFiltered,
   totalPengeluaranFiltered,
 }) => {
+  const confirmDialog = useConfirm();
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden no-print">
       <div className="overflow-x-auto">
@@ -127,8 +130,15 @@ export const KasTable: React.FC<KasTableProps> = ({
                     <td className="py-3 px-4 text-right whitespace-nowrap">
                       {isAdmin ? (
                         <button
-                          onClick={() => {
-                            if (confirm(`Hapus catatan transaksi "${t.keterangan}"?`)) {
+                          onClick={async () => {
+                            const setuju = await confirmDialog({
+                              title: 'Hapus Transaksi Kas',
+                              message: `Apakah Anda yakin ingin menghapus catatan transaksi "${t.keterangan}" (${formatRupiah(t.jumlah)})?`,
+                              variant: 'danger',
+                              confirmText: 'Ya, Hapus Transaksi',
+                              cancelText: 'Batal',
+                            });
+                            if (setuju) {
                               onHapusKas(t.id);
                             }
                           }}

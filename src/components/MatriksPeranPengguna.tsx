@@ -31,6 +31,7 @@ import {
   isAdminOrLeader,
 } from '../utils/permissions';
 import { generateDummyCredentials } from '../utils/dummyDataGenerator';
+import { useConfirm, useToast, useAlertModal } from '../context/NotificationContext';
 
 interface MatriksPeranPenggunaProps {
   credentials: UserCredential[];
@@ -57,6 +58,10 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
   totalKk,
   totalKas,
 }) => {
+  const confirmDialog = useConfirm();
+  const toast = useToast();
+  const alertModal = useAlertModal();
+
   const [activeSubTab, setActiveSubTab] = useState<'matrix' | 'users' | 'developer'>('matrix');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
@@ -105,8 +110,17 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
   };
 
   // Generate Akun Pengguna untuk Setiap Peran
-  const handleGenerateAllRoles = () => {
-    if (confirm('Generate otomatis akun pengguna untuk seluruh 7 peran (Developer, Ketua RT, Sekretaris, Bendahara, Pengurus, Warga, dan Admin)? Akun dengan NIK yang sudah ada tidak akan diduplikasi.')) {
+  const handleGenerateAllRoles = async () => {
+    const setuju = await confirmDialog({
+      title: 'Generate Otomatis Akun Peran',
+      message: 'Generate otomatis akun pengguna untuk seluruh 7 peran (Developer, Ketua RT, Sekretaris, Bendahara, Pengurus, Warga, dan Admin)?',
+      details: 'Akun dengan NIK yang sudah ada tidak akan diduplikasi.',
+      variant: 'info',
+      confirmText: 'Ya, Generate Akun',
+      cancelText: 'Batal',
+    });
+
+    if (setuju) {
       const dummyCreds = generateDummyCredentials();
       let addedCount = 0;
       dummyCreds.forEach(dc => {
@@ -116,7 +130,7 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
           addedCount++;
         }
       });
-      alert(`Berhasil menambahkan ${addedCount} akun peran baru! Silakan gunakan untuk login pengujian.`);
+      toast.success(`Berhasil menambahkan ${addedCount} akun peran baru! Silakan gunakan untuk login.`);
     }
   };
 
@@ -183,17 +197,35 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
   };
 
   // Hapus akun dengan proteksi dinamis
-  const handleDelete = (cred: UserCredential) => {
+  const handleDelete = async (cred: UserCredential) => {
     if (currentUser?.nik && cred.nik.toLowerCase() === currentUser.nik.toLowerCase()) {
-      alert('Anda tidak dapat menghapus akun yang sedang Anda gunakan untuk login saat ini.');
+      await alertModal({
+        title: 'Operasi Ditolak',
+        message: 'Anda tidak dapat menghapus akun yang sedang Anda gunakan untuk login saat ini.',
+        variant: 'warning',
+      });
       return;
     }
     const adminCount = credentials.filter(c => c.role === 'developer' || c.role === 'ketua_rt' || c.role === 'admin').length;
     if ((cred.role === 'developer' || cred.role === 'ketua_rt' || cred.role === 'admin') && adminCount <= 1) {
-      alert('Tidak dapat menghapus satu-satunya akun Administrator / Developer yang tersisa di sistem.');
+      await alertModal({
+        title: 'Operasi Ditolak',
+        message: 'Tidak dapat menghapus satu-satunya akun Administrator / Developer yang tersisa di sistem.',
+        variant: 'warning',
+      });
       return;
     }
-    if (confirm(`Yakin ingin menghapus akun "${cred.nama}" (${cred.nik})? Pengguna ini tidak akan bisa login lagi.`)) {
+
+    const setuju = await confirmDialog({
+      title: 'Hapus Akun Pengguna',
+      message: `Apakah Anda yakin ingin menghapus akun "${cred.nama}" (${cred.nik})?`,
+      details: 'Pengguna ini tidak akan dapat login lagi ke dalam sistem.',
+      variant: 'danger',
+      confirmText: 'Ya, Hapus Akun',
+      cancelText: 'Batal',
+    });
+
+    if (setuju) {
       onHapusCredential(cred.nik);
     }
   };

@@ -20,6 +20,7 @@ import {
 } from '../types';
 import { THEME_PRESETS, DEFAULT_THEME_CONFIG, DEFAULT_LOGO_CONFIG } from '../data/initialData';
 import { BatikLogo } from './BatikLogo';
+import { useConfirm, useToast } from '../context/NotificationContext';
 
 interface PengaturanTemaLogoModalProps {
   isOpen: boolean;
@@ -34,6 +35,9 @@ export const PengaturanTemaLogoModal: React.FC<PengaturanTemaLogoModalProps> = (
   profilRt,
   onSaveThemeAndLogo,
 }) => {
+  const confirmDialog = useConfirm();
+  const toast = useToast();
+
   const [activeSubTab, setActiveSubTab] = useState<'logo' | 'warna'>('warna');
   
   // Local state for draft changes
@@ -67,13 +71,13 @@ export const PengaturanTemaLogoModal: React.FC<PengaturanTemaLogoModalProps> = (
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('Harap pilih file gambar (PNG, JPG, SVG, atau WEBP).');
+      toast.error('Harap pilih file gambar (PNG, JPG, SVG, atau WEBP).');
       return;
     }
 
     // Limit to 2MB for base64 storage
     if (file.size > 2 * 1024 * 1024) {
-      alert('Ukuran file gambar maksimal 2 MB.');
+      toast.error('Ukuran file gambar maksimal 2 MB.');
       return;
     }
 
@@ -85,6 +89,7 @@ export const PengaturanTemaLogoModal: React.FC<PengaturanTemaLogoModalProps> = (
         tipe: 'custom-image',
         customImageDataUrl: result,
       }));
+      toast.success('Gambar logo kustom berhasil dimuat!');
     };
     reader.readAsDataURL(file);
   };
@@ -94,10 +99,18 @@ export const PengaturanTemaLogoModal: React.FC<PengaturanTemaLogoModalProps> = (
     onClose();
   };
 
-  const handleResetToDefault = () => {
-    if (confirm('Kembalikan tema dan logo ke standar Batik Soga Klasik?')) {
+  const handleResetToDefault = async () => {
+    const setuju = await confirmDialog({
+      title: 'Kembalikan Tema Standar',
+      message: 'Kembalikan tema dan logo ke standar Batik Soga Klasik?',
+      variant: 'warning',
+      confirmText: 'Ya, Kembalikan',
+      cancelText: 'Batal',
+    });
+    if (setuju) {
       setDraftTheme(DEFAULT_THEME_CONFIG);
       setDraftLogo(DEFAULT_LOGO_CONFIG);
+      toast.info('Tema dan logo dikembalikan ke standar bawaan.');
     }
   };
 

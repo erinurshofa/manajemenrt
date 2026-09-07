@@ -39,6 +39,7 @@ import {
   generateDummyPengurus,
   generateDummyCredentials,
 } from '../../utils/dummyDataGenerator';
+import { useConfirm } from '../../context/NotificationContext';
 import {
   INITIAL_WARGA,
   INITIAL_MUTASI,
@@ -104,6 +105,7 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
   profilRt,
   setProfilRt,
 }) => {
+  const confirmDialog = useConfirm();
   const [activeTab, setActiveTab] = useState<DevTab>('diagnostik');
   const [storageUsage, setStorageUsage] = useState<string>('Memeriksa...');
   const [isResyncing, setIsResyncing] = useState(false);
@@ -181,14 +183,23 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = event => {
+    reader.onload = async event => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
         if (!parsed.data || !Array.isArray(parsed.data.warga)) {
           throw new Error('Format file JSON tidak valid atau bukan snapshot RT Gasem.');
         }
 
-        if (confirm('Apakah Anda yakin ingin memulihkan database dari file ini? Data yang ada akan diperbarui.')) {
+        const setuju = await confirmDialog({
+          title: 'Pulihkan Database dari Snapshot',
+          message: 'Apakah Anda yakin ingin memulihkan database dari file ini?',
+          details: 'Data yang ada saat ini akan diperbarui sesuai snapshot.',
+          variant: 'warning',
+          confirmText: 'Ya, Pulihkan Data',
+          cancelText: 'Batal',
+        });
+
+        if (setuju) {
           if (parsed.data.warga) setDaftarWarga(parsed.data.warga);
           if (parsed.data.mutasi) setDaftarMutasi(parsed.data.mutasi);
           if (parsed.data.kas) setDaftarKas(parsed.data.kas);
@@ -209,8 +220,16 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
   };
 
   // 4. Inject Dummy Sample Data
-  const handleInjectDummyData = () => {
-    if (confirm('Tambahkan data lengkap contoh (warga, kas, mutasi, arsip dokumen, pengurus RT, & akun peran) untuk pengujian performa UI?')) {
+  const handleInjectDummyData = async () => {
+    const setuju = await confirmDialog({
+      title: 'Injeksi Data Contoh Pengujian',
+      message: 'Tambahkan data lengkap contoh (warga, kas, mutasi, arsip dokumen, pengurus RT, & akun peran) untuk pengujian performa UI?',
+      variant: 'info',
+      confirmText: 'Ya, Tambahkan Data',
+      cancelText: 'Batal',
+    });
+
+    if (setuju) {
       const dummyWarga = generateDummyWarga();
       const dummyKas = generateDummyKas();
       const dummyMutasi = generateDummyMutasi(dummyWarga);
@@ -249,8 +268,17 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
   };
 
   // 5. Reset to Clean Initial Data
-  const handleResetToInitialData = () => {
-    if (confirm('PERINGATAN: Apakah Anda yakin ingin mereset seluruh data kembali ke data standar bawaan aplikasi?')) {
+  const handleResetToInitialData = async () => {
+    const setuju = await confirmDialog({
+      title: 'Reset ke Kondisi Standar',
+      message: 'Apakah Anda yakin ingin mereset seluruh data kembali ke data standar bawaan aplikasi?',
+      details: 'Peringatan: Seluruh data perubahan yang ada akan dikembalikan ke kondisi awal pabrikan.',
+      variant: 'danger',
+      confirmText: 'Ya, Reset Seluruh Data',
+      cancelText: 'Batal',
+    });
+
+    if (setuju) {
       setDaftarWarga(INITIAL_WARGA);
       setDaftarMutasi(INITIAL_MUTASI);
       setDaftarKas(INITIAL_KAS);

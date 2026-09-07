@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Settings, Save, RotateCcw, Download, Upload, Check, Palette } from 'lucide-react';
 import { ProfilRt, Warga, MutasiRecord, TransaksiKas, DokumenRt, PengurusRt } from '../types';
+import { useConfirm, useToast } from '../context/NotificationContext';
 
 interface PengaturanRtModalProps {
   isOpen: boolean;
@@ -38,22 +39,34 @@ export const PengaturanRtModal: React.FC<PengaturanRtModalProps> = ({
   onOpenThemeModal,
   onImportData,
 }) => {
+  const confirmDialog = useConfirm();
+  const toast = useToast();
+
   const [form, setForm] = useState<ProfilRt>(profilRt);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleChange = (field: keyof ProfilRt, value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = () => {
     onSaveProfil(form);
     setSavedSuccess(true);
+    toast.success('Pengaturan profil RT berhasil disimpan!');
     setTimeout(() => {
       setSavedSuccess(false);
       onClose();
     }, 1000);
   };
 
-  const handleExportBackup = () => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSave();
+  };
+
+  const handleExportData = () => {
     const backupData = {
       profilRt: form,
       daftarWarga,
@@ -61,16 +74,17 @@ export const PengaturanRtModal: React.FC<PengaturanRtModalProps> = ({
       daftarKas,
       daftarDokumen,
       daftarPengurus,
-      exportedAt: new Date().toISOString(),
+      exportDate: new Date().toISOString(),
+      version: '1.0',
     };
-    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `backup-gasemraya-rt-${form.nomorRt}-rw-${form.nomorRw}-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `cadangan_data_rt_gasem_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    toast.success('File cadangan JSON berhasil diunduh.');
   };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,13 +104,13 @@ export const PengaturanRtModal: React.FC<PengaturanRtModalProps> = ({
             json.daftarDokumen,
             json.daftarPengurus
           );
-          alert('Data GasemRaya (Warga, Kas, Dokumen, & Pengurus) berhasil dipulihkan dari cadangan!');
+          toast.success('Data GasemRaya berhasil dipulihkan dari cadangan!');
           onClose();
         } else {
-          alert('Format file cadangan tidak valid');
+          toast.error('Format file cadangan tidak valid.');
         }
       } catch (err) {
-        alert('Gagal membaca file JSON');
+        toast.error('Gagal membaca file JSON cadangan.');
       }
     };
     reader.readAsText(file);
@@ -277,7 +291,7 @@ export const PengaturanRtModal: React.FC<PengaturanRtModalProps> = ({
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={handleExportBackup}
+                onClick={handleExportData}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -292,9 +306,18 @@ export const PengaturanRtModal: React.FC<PengaturanRtModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => {
-                  if (confirm('Kembalikan semua data ke contoh awal RT? Data yang belum dicadangkan akan hilang.')) {
+                onClick={async () => {
+                  const setuju = await confirmDialog({
+                    title: 'Reset ke Data Bawaan',
+                    message: 'Kembalikan semua data ke contoh awal RT?',
+                    details: 'Peringatan: Seluruh data yang belum dicadangkan akan hilang.',
+                    variant: 'danger',
+                    confirmText: 'Ya, Reset Data',
+                    cancelText: 'Batal',
+                  });
+                  if (setuju) {
                     onResetData();
+                    toast.info('Data berhasil dikembalikan ke contoh awal.');
                     onClose();
                   }
                 }}

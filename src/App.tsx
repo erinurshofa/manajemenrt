@@ -22,6 +22,7 @@ import { Sparkles, Loader2 } from 'lucide-react';
 import { DevRoleBanner } from './components/dev/DevRoleBanner';
 import { usePWAInstall } from './hooks/usePWAInstall';
 import { useRtSync } from './hooks/useRtSync';
+import { useConfirm, useToast } from './context/NotificationContext';
 
 // Lazy Loaded Components for Maximum Bundle Performance & Faster Mobile Initial Load
 const BukuKasKeuangan = React.lazy(() =>
@@ -123,6 +124,10 @@ export default function App() {
   const [daftarDokumen, setDaftarDokumen] = useState<DokumenRt[]>(INITIAL_DOKUMEN);
   const [daftarPengurus, setDaftarPengurus] = useState<PengurusRt[]>(INITIAL_PENGURUS);
   const [credentials, setCredentials] = useState<UserCredential[]>(INITIAL_CREDENTIALS);
+
+  // Notification & Confirmation Hooks
+  const confirmDialog = useConfirm();
+  const toast = useToast();
 
   // User Auth session (kept in sessionStorage during browser tab lifecycle)
   const [currentUser, setCurrentUser] = useState<UserSession | null>(() => {
@@ -247,16 +252,26 @@ export default function App() {
     setCurrentUser(session);
     sessionStorage.setItem('gasemraya_auth', JSON.stringify(session));
     setIsLoginModalOpen(false);
+    toast.success(`Selamat datang, ${session.nama} (${session.role})!`);
   };
 
-  const handleLogout = () => {
-    if (window.confirm('Apakah Anda yakin ingin keluar dari sistem Gasem Raya RT 02?')) {
+  const handleLogout = async () => {
+    const setuju = await confirmDialog({
+      title: 'Konfirmasi Keluar',
+      message: 'Apakah Anda yakin ingin keluar dari sistem Gasem Raya RT 02?',
+      variant: 'warning',
+      confirmText: 'Ya, Keluar Akun',
+      cancelText: 'Batal',
+    });
+
+    if (setuju) {
       setCurrentUser(null);
       setSimulatedRole(null);
       setIsSupabaseConnected(false);
       sessionStorage.removeItem('gasemraya_auth');
       sessionStorage.removeItem('gasemraya_simulated_role');
       localStorage.removeItem('gasemraya_auth');
+      toast.info('Anda telah keluar dari akun.');
     }
   };
 
@@ -269,11 +284,13 @@ export default function App() {
     };
     setProfilRt(updated);
     syncProfilRtUpsert(updated);
+    toast.success('Pengaturan tema dan logo berhasil disimpan!');
   };
 
   const handleSaveProfil = (newProfil: ProfilRt) => {
     setProfilRt(newProfil);
     syncProfilRtUpsert(newProfil);
+    toast.success('Profil RT berhasil diperbarui!');
   };
 
   // Handlers Warga
@@ -297,12 +314,20 @@ export default function App() {
       m => m.wargaId === id || (targetNik && m.nik === targetNik)
     );
 
-    let confirmMsg = `Apakah Anda yakin ingin menghapus data warga "${nama}"?`;
-    if (relatedMutasi.length > 0) {
-      confirmMsg = `Warga "${nama}" memiliki ${relatedMutasi.length} catatan riwayat di menu Mutasi Penduduk.\n\nApakah Anda yakin ingin menghapus data warga ini beserta seluruh ${relatedMutasi.length} riwayat mutasinya secara permanen?`;
-    }
+    const hasCascade = relatedMutasi.length > 0;
 
-    if (confirm(confirmMsg)) {
+    const setuju = await confirmDialog({
+      title: 'Hapus Data Warga',
+      message: `Apakah Anda yakin ingin menghapus data warga "${nama}"?`,
+      details: hasCascade
+        ? `⚠️ Warga "${nama}" tercatat pada ${relatedMutasi.length} riwayat mutasi penduduk. Menghapus warga ini akan otomatis menghapus seluruh ${relatedMutasi.length} riwayat mutasi terkait secara permanen (Cascade Delete).`
+        : undefined,
+      variant: 'danger',
+      confirmText: hasCascade ? 'Ya, Hapus Warga & Mutasi' : 'Ya, Hapus Data',
+      cancelText: 'Batal',
+    });
+
+    if (setuju) {
       const mutasiIdsToDelete = new Set(relatedMutasi.map(m => m.id));
       setDaftarWarga(prev => prev.filter(w => w.id !== id));
       setDaftarMutasi(prev => prev.filter(m => !mutasiIdsToDelete.has(m.id) && m.wargaId !== id));
@@ -311,6 +336,12 @@ export default function App() {
       for (const m of relatedMutasi) {
         await syncMutasiDelete(m.id);
       }
+
+      toast.success(
+        hasCascade
+          ? `Data "${nama}" beserta ${relatedMutasi.length} riwayat mutasinya berhasil dihapus.`
+          : `Data warga "${nama}" berhasil dihapus.`
+      );
     }
   };
 
@@ -318,9 +349,9 @@ export default function App() {
     warga: Warga,
     catatMutasi?: { jenis: 'Lahir' | 'Pindah_Masuk'; tanggal: string; keterangan: string }
   ) => {
+    const isEdit = daftarWarga.some(w => w.id === warga.id);
     setDaftarWarga(prev => {
-      const exists = prev.some(w => w.id === warga.id);
-      if (exists) {
+      if (isEdit) {
         return prev.map(w => (w.id === warga.id ? warga : w));
       } else {
         return [warga, ...prev];
@@ -343,6 +374,8 @@ export default function App() {
       setDaftarMutasi(prev => [mutasiBaru, ...prev]);
       await syncMutasiUpsert(mutasiBaru);
     }
+
+    toast.success(isEdit ? `Data "${warga.nama}" berhasil diperbarui.` : `Data warga "${warga.nama}" berhasil ditambahkan.`);
   };
 
   const handleTambahAnggotaKk = (noKk: string, alamat: string, rt: string, rw: string) => {
@@ -380,12 +413,25 @@ export default function App() {
         })
       );
     }
+    toast.success(`Catatan mutasi untuk "${mutasi.nama}" berhasil dicatat.`);
   };
 
-  const handleHapusMutasi = (id: string) => {
-    if (confirm('Hapus catatan mutasi ini?')) {
+  const handleHapusMutasi = async (id: string) => {
+    const target = daftarMutasi.find(m => m.id === id);
+    const label = target ? `mutasi "${target.nama}" (${target.jenisMutasi})` : 'catatan mutasi ini';
+
+    const setuju = await confirmDialog({
+      title: 'Hapus Catatan Mutasi',
+      message: `Apakah Anda yakin ingin menghapus ${label}?`,
+      variant: 'danger',
+      confirmText: 'Ya, Hapus Mutasi',
+      cancelText: 'Batal',
+    });
+
+    if (setuju) {
       setDaftarMutasi(prev => prev.filter(m => m.id !== id));
       syncMutasiDelete(id);
+      toast.success('Catatan mutasi berhasil dihapus.');
     }
   };
 
@@ -393,59 +439,109 @@ export default function App() {
   const handleTambahKas = (tx: TransaksiKas) => {
     setDaftarKas(prev => [tx, ...prev]);
     syncKasUpsert(tx);
+    toast.success('Transaksi kas berhasil dicatat.');
   };
 
-  const handleHapusKas = (id: string) => {
-    setDaftarKas(prev => prev.filter(k => k.id !== id));
-    syncKasDelete(id);
+  const handleHapusKas = async (id: string) => {
+    const target = daftarKas.find(k => k.id === id);
+    const label = target ? `transaksi "${target.keterangan}"` : 'transaksi kas ini';
+
+    const setuju = await confirmDialog({
+      title: 'Hapus Transaksi Kas',
+      message: `Apakah Anda yakin ingin menghapus ${label}?`,
+      variant: 'danger',
+      confirmText: 'Ya, Hapus Transaksi',
+      cancelText: 'Batal',
+    });
+
+    if (setuju) {
+      setDaftarKas(prev => prev.filter(k => k.id !== id));
+      syncKasDelete(id);
+      toast.success('Transaksi kas berhasil dihapus.');
+    }
   };
 
   // Handlers Dokumen
   const handleTambahDokumen = (doc: DokumenRt) => {
     setDaftarDokumen(prev => [doc, ...prev]);
     syncDokumenUpsert(doc);
+    toast.success(`Dokumen "${doc.judul}" berhasil diarsipkan.`);
   };
 
   const handleEditDokumen = (doc: DokumenRt) => {
     setDaftarDokumen(prev => prev.map(d => (d.id === doc.id ? doc : d)));
     syncDokumenUpsert(doc);
+    toast.success(`Dokumen "${doc.judul}" berhasil diperbarui.`);
   };
 
-  const handleHapusDokumen = (id: string) => {
-    setDaftarDokumen(prev => prev.filter(d => d.id !== id));
-    syncDokumenDelete(id);
+  const handleHapusDokumen = async (id: string) => {
+    const target = daftarDokumen.find(d => d.id === id);
+    const label = target ? `berkas "${target.judul}"` : 'berkas dokumen ini';
+
+    const setuju = await confirmDialog({
+      title: 'Hapus Berkas Dokumen',
+      message: `Apakah Anda yakin ingin menghapus ${label}?`,
+      variant: 'danger',
+      confirmText: 'Ya, Hapus Dokumen',
+      cancelText: 'Batal',
+    });
+
+    if (setuju) {
+      setDaftarDokumen(prev => prev.filter(d => d.id !== id));
+      syncDokumenDelete(id);
+      toast.success('Berkas dokumen berhasil dihapus.');
+    }
   };
 
   // Handlers Pengurus
   const handleTambahPengurus = (p: PengurusRt) => {
     setDaftarPengurus(prev => [...prev, p]);
     syncPengurusUpsert(p);
+    toast.success(`Pengurus "${p.nama}" (${p.jabatan}) berhasil ditambahkan.`);
   };
 
   const handleEditPengurus = (p: PengurusRt) => {
     setDaftarPengurus(prev => prev.map(item => (item.id === p.id ? p : item)));
     syncPengurusUpsert(p);
+    toast.success(`Data pengurus "${p.nama}" berhasil diperbarui.`);
   };
 
-  const handleHapusPengurus = (id: string) => {
-    setDaftarPengurus(prev => prev.filter(item => item.id !== id));
-    syncPengurusDelete(id);
+  const handleHapusPengurus = async (id: string) => {
+    const target = daftarPengurus.find(p => p.id === id);
+    const label = target ? `pengurus "${target.nama}" (${target.jabatan})` : 'data pengurus ini';
+
+    const setuju = await confirmDialog({
+      title: 'Hapus Pengurus RT',
+      message: `Apakah Anda yakin ingin menghapus ${label}?`,
+      variant: 'danger',
+      confirmText: 'Ya, Hapus Pengurus',
+      cancelText: 'Batal',
+    });
+
+    if (setuju) {
+      setDaftarPengurus(prev => prev.filter(item => item.id !== id));
+      syncPengurusDelete(id);
+      toast.success('Data pengurus berhasil dihapus.');
+    }
   };
 
   // Handlers Kredensial / Akun Pengguna (RBAC & Developer Management)
   const handleTambahCredential = (cred: UserCredential) => {
     setCredentials(prev => [...prev.filter(c => c.nik !== cred.nik), cred]);
     syncCredentialUpsert(cred);
+    toast.success(`Akun pengguna "${cred.nama}" (${cred.role}) berhasil disimpan.`);
   };
 
   const handleEditCredential = (cred: UserCredential) => {
     setCredentials(prev => prev.map(c => (c.nik === cred.nik ? cred : c)));
     syncCredentialUpsert(cred);
+    toast.success(`Akun pengguna "${cred.nama}" berhasil diperbarui.`);
   };
 
   const handleHapusCredential = (nik: string) => {
     setCredentials(prev => prev.filter(c => c.nik !== nik));
     syncCredentialDelete(nik);
+    toast.success('Akun peran berhasil dihapus.');
   };
 
   // Reset & Import

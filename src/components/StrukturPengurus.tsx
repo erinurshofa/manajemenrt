@@ -16,6 +16,7 @@ import {
   Award,
 } from 'lucide-react';
 import { PengurusRt, ProfilRt, Warga, UserSession } from '../types';
+import { useConfirm } from '../context/NotificationContext';
 
 interface StrukturPengurusProps {
   daftarPengurus: PengurusRt[];
@@ -37,6 +38,7 @@ export const StrukturPengurus: React.FC<StrukturPengurusProps> = ({
   currentUser,
 }) => {
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'pengurus';
+  const confirmDialog = useConfirm();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PengurusRt | null>(null);
 
@@ -424,12 +426,19 @@ export const StrukturPengurus: React.FC<StrukturPengurusProps> = ({
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm(`Hapus pengurus "${p.nama}" (${p.jabatan})?`)) {
+                          onClick={async () => {
+                            const setuju = await confirmDialog({
+                              title: 'Hapus Pengurus RT',
+                              message: `Apakah Anda yakin ingin menghapus pengurus "${p.nama}" (${p.jabatan})?`,
+                              variant: 'danger',
+                              confirmText: 'Ya, Hapus Pengurus',
+                              cancelText: 'Batal',
+                            });
+                            if (setuju) {
                               onHapusPengurus(p.id);
                             }
                           }}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
                           title="Hapus"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

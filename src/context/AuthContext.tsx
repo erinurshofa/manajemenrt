@@ -66,12 +66,10 @@ export const AuthProvider: React.FC<{
   };
 
   const logout = () => {
-    if (typeof window !== 'undefined' && window.confirm('Apakah Anda yakin ingin keluar dari sistem Gasem Raya RT 02?')) {
-      setCurrentUser(null);
-      setSimulatedRole(null);
-      sessionStorage.removeItem('gasemraya_auth');
-      localStorage.removeItem('gasemraya_auth');
-    }
+    setCurrentUser(null);
+    setSimulatedRole(null);
+    sessionStorage.removeItem('gasemraya_auth');
+    localStorage.removeItem('gasemraya_auth');
   };
 
   const tambahCredential = (cred: UserCredential) => {
