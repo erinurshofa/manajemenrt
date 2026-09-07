@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { ProfilRt } from '../types';
 import { askGeminiAssistant, ChatMessage } from '../services/geminiService';
+import { FormattedAiMessage } from './ai/FormattedAiMessage';
 
 interface AsistenAiModalProps {
   isOpen: boolean;
@@ -174,7 +175,7 @@ export const AsistenAiModal: React.FC<AsistenAiModalProps> = ({
         </div>
 
         {/* Message Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-stone-50/50">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-stone-50/60">
           {messages.map(msg => (
             <div
               key={msg.id}
@@ -186,38 +187,52 @@ export const AsistenAiModal: React.FC<AsistenAiModalProps> = ({
                 </div>
               )}
 
-              <div
-                className={`max-w-[85%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed shadow-xs relative group ${
-                  msg.sender === 'user'
-                    ? 'bg-amber-800 text-white rounded-br-none'
-                    : 'bg-white text-stone-800 border border-stone-200 rounded-bl-none'
-                }`}
-              >
-                <div className="whitespace-pre-wrap font-sans">{msg.text}</div>
-                
-                <div className="mt-2 pt-1 flex items-center justify-between border-t border-black/5 text-[10px] opacity-70">
-                  <span>{msg.timestamp}</span>
-                  {msg.sender === 'ai' && (
+              {msg.sender === 'user' ? (
+                <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-sm bg-gradient-to-r from-amber-700 to-amber-800 text-white p-3.5 sm:p-4 text-xs sm:text-sm leading-relaxed shadow-sm">
+                  <div className="whitespace-pre-wrap font-sans select-text">{msg.text}</div>
+                  <div className="mt-1.5 text-right text-[10px] text-amber-200/75 font-medium">
+                    {msg.timestamp}
+                  </div>
+                </div>
+              ) : (
+                <div className="max-w-[92%] sm:max-w-[85%] rounded-2xl rounded-tl-sm bg-white border border-stone-200/90 shadow-sm overflow-hidden">
+                  {/* Subtle Assistant Banner */}
+                  <div className="px-3.5 sm:px-4 py-2 bg-stone-50/80 border-b border-stone-100 flex items-center justify-between text-[11px] text-stone-500 font-medium">
+                    <div className="flex items-center gap-1.5 text-amber-900 font-bold">
+                      <Sparkles className="w-3 h-3 text-amber-600" />
+                      <span>Asisten Cerdas RT</span>
+                    </div>
+                    <span className="text-stone-400 text-[10px]">{msg.timestamp}</span>
+                  </div>
+
+                  {/* Message Content */}
+                  <div className="p-3.5 sm:p-4 text-xs sm:text-sm leading-relaxed">
+                    <FormattedAiMessage content={msg.text} />
+                  </div>
+
+                  {/* Actions Footer */}
+                  <div className="px-3.5 sm:px-4 py-1.5 bg-stone-50/50 border-t border-stone-100 flex items-center justify-end">
                     <button
+                      type="button"
                       onClick={() => handleCopy(msg.text, msg.id)}
-                      className="hover:opacity-100 flex items-center gap-1 text-[10px] text-amber-900 font-semibold cursor-pointer"
-                      title="Salin jawaban"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium text-stone-600 hover:text-amber-900 hover:bg-amber-100/60 transition-colors cursor-pointer"
+                      title="Salin seluruh jawaban"
                     >
                       {copiedId === msg.id ? (
                         <>
                           <Check className="w-3 h-3 text-emerald-600" />
-                          <span>Tersalin!</span>
+                          <span className="text-emerald-700 font-bold">Tersalin!</span>
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3 h-3" />
-                          <span>Salin</span>
+                          <Copy className="w-3 h-3 text-stone-500" />
+                          <span>Salin Jawaban</span>
                         </>
                       )}
                     </button>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {msg.sender === 'user' && (
                 <div className="w-8 h-8 rounded-lg bg-stone-700 text-stone-200 flex items-center justify-center shrink-0 shadow-2xs mt-1">
@@ -228,13 +243,16 @@ export const AsistenAiModal: React.FC<AsistenAiModalProps> = ({
           ))}
 
           {isLoading && (
-            <div className="flex gap-3 justify-start">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600 to-amber-800 text-amber-100 flex items-center justify-center shrink-0 shadow-2xs">
+            <div className="flex gap-3 justify-start items-start">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600 to-amber-800 text-amber-100 flex items-center justify-center shrink-0 shadow-2xs mt-1 animate-pulse">
                 <Bot className="w-4 h-4" />
               </div>
-              <div className="bg-white border border-stone-200 rounded-2xl rounded-bl-none p-3.5 shadow-xs flex items-center gap-2 text-xs text-stone-600">
-                <Loader2 className="w-4 h-4 animate-spin text-amber-700" />
-                <span>Asisten sedang merumuskan jawaban...</span>
+              <div className="bg-white border border-stone-200/90 rounded-2xl rounded-tl-sm p-3.5 sm:p-4 shadow-sm flex items-center gap-3 text-xs sm:text-sm text-stone-700">
+                <Loader2 className="w-4 h-4 animate-spin text-amber-700 shrink-0" />
+                <div className="flex flex-col">
+                  <span className="font-semibold text-stone-800">Sedang menyusun jawaban...</span>
+                  <span className="text-[11px] text-stone-400">Menyesuaikan dengan tata tertib & administrasi RT</span>
+                </div>
               </div>
             </div>
           )}
