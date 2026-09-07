@@ -9,6 +9,7 @@ import {
   ThemeConfig,
   LogoConfig,
   UserCredential,
+  UserSession,
 } from '../types';
 
 export const THEME_PRESETS: Record<
@@ -264,3 +265,14 @@ export const INITIAL_KAS: TransaksiKas[] = [
     nomorBukti: 'BKM-001',
   },
 ];
+
+export const DEFAULT_ADMIN_USER: UserSession = {
+  nik: 'developer',
+  nama: 'Developer / Superadmin RT',
+  role: 'developer',
+  jabatan: 'System Engineer & Developer',
+  alamat: 'RT 02 / RW 04 Gasem Raya',
+  noHp: '0812-0000-0001',
+  loginAt: '2026-09-01T00:00:00.000Z',
+};
+

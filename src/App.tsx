@@ -26,10 +26,8 @@ import { MatriksPeranPengguna } from './components/MatriksPeranPengguna';
 import { Sparkles } from 'lucide-react';
 import { GoogleDriveManager } from './components/GoogleDriveManager';
 import { usePWAInstall } from './hooks/usePWAInstall';
+import { useRtSync } from './hooks/useRtSync';
 import {
-  checkSupabaseConnection,
-  fetchAllFromSupabase,
-  seedInitialDataToSupabase,
   syncWargaUpsert,
   syncWargaDelete,
   syncMutasiUpsert,
@@ -41,14 +39,7 @@ import {
   syncPengurusUpsert,
   syncPengurusDelete,
   syncProfilRtUpsert,
-  flushOfflineSyncQueue,
-  subscribeToRealtimeChanges,
 } from './services/supabaseService';
-import {
-  loadAllLocalData,
-  saveCollectionToIndexedDb,
-  saveSingleItemToIndexedDb,
-} from './services/offlineStorage';
 
 import {
   Warga,
@@ -73,6 +64,7 @@ import {
   INITIAL_CREDENTIALS,
   DEFAULT_THEME_CONFIG,
   DEFAULT_LOGO_CONFIG,
+  DEFAULT_ADMIN_USER,
 } from './data/initialData';
 import { kelompokkanPerKk } from './utils/calculations';
 
@@ -126,211 +118,32 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // IndexedDB Resilient Offline & Refresh Persistence
-  const [isLocalDbLoaded, setIsLocalDbLoaded] = useState(false);
-
-  useEffect(() => {
-    loadAllLocalData()
-      .then(local => {
-        if (local.daftarWarga && local.daftarWarga.length > 0) setDaftarWarga(local.daftarWarga);
-        if (local.daftarMutasi && local.daftarMutasi.length > 0) setDaftarMutasi(local.daftarMutasi);
-        if (local.daftarKas && local.daftarKas.length > 0) setDaftarKas(local.daftarKas);
-        if (local.daftarDokumen && local.daftarDokumen.length > 0) setDaftarDokumen(local.daftarDokumen);
-        if (local.daftarPengurus && local.daftarPengurus.length > 0) setDaftarPengurus(local.daftarPengurus);
-        if (local.profilRt) setProfilRt(local.profilRt);
-        if (local.credentials && local.credentials.length > 0) {
-          setCredentials(local.credentials);
-        } else {
-          setCredentials(INITIAL_CREDENTIALS);
-        }
-        setIsLocalDbLoaded(true);
-      })
-      .catch(err => {
-        console.warn('Gagal membaca IndexedDB:', err);
-        setIsLocalDbLoaded(true);
-      });
-  }, []);
-
-  // Simpan otomatis ke IndexedDB setiap kali ada perubahan data (0% Data Loss on F5 Refresh)
-  useEffect(() => {
-    if (isLocalDbLoaded) saveCollectionToIndexedDb('warga', daftarWarga);
-  }, [daftarWarga, isLocalDbLoaded]);
-
-  useEffect(() => {
-    if (isLocalDbLoaded) saveCollectionToIndexedDb('mutasi', daftarMutasi);
-  }, [daftarMutasi, isLocalDbLoaded]);
-
-  useEffect(() => {
-    if (isLocalDbLoaded) saveCollectionToIndexedDb('transaksi_kas', daftarKas);
-  }, [daftarKas, isLocalDbLoaded]);
-
-  useEffect(() => {
-    if (isLocalDbLoaded) saveCollectionToIndexedDb('dokumen_rt', daftarDokumen);
-  }, [daftarDokumen, isLocalDbLoaded]);
-
-  useEffect(() => {
-    if (isLocalDbLoaded) saveCollectionToIndexedDb('pengurus_rt', daftarPengurus);
-  }, [daftarPengurus, isLocalDbLoaded]);
-
-  useEffect(() => {
-    if (isLocalDbLoaded) saveSingleItemToIndexedDb('profil_rt', profilRt);
-  }, [profilRt, isLocalDbLoaded]);
-
-  useEffect(() => {
-    if (isLocalDbLoaded) saveCollectionToIndexedDb('credentials', credentials);
-  }, [credentials, isLocalDbLoaded]);
-
-  // Network Online / Offline Listener
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
-
-  // Supabase Cloud State
-  const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
-  const [isSupabaseTablesMissing, setIsSupabaseTablesMissing] = useState(false);
-  const [supabaseErrorMessage, setSupabaseErrorMessage] = useState<string | undefined>();
-  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
-
-  // Reference to always access current data state without causing unnecessary re-fetches
-  const currentDataRef = useRef({
-    profilRt,
+  // IndexedDB Resilient Offline & Supabase Cloud Realtime Synchronizer
+  const {
+    isLocalDbLoaded,
+    isOnline,
+    isSupabaseConnected,
+    setIsSupabaseConnected,
+    isSupabaseTablesMissing,
+    supabaseErrorMessage,
+    refreshSupabaseConnection,
+  } = useRtSync({
     daftarWarga,
+    setDaftarWarga,
     daftarMutasi,
+    setDaftarMutasi,
     daftarKas,
+    setDaftarKas,
     daftarDokumen,
+    setDaftarDokumen,
     daftarPengurus,
+    setDaftarPengurus,
+    profilRt,
+    setProfilRt,
     credentials,
+    setCredentials,
+    currentUser,
   });
-
-  useEffect(() => {
-    currentDataRef.current = {
-      profilRt,
-      daftarWarga,
-      daftarMutasi,
-      daftarKas,
-      daftarDokumen,
-      daftarPengurus,
-      credentials,
-    };
-  }, [profilRt, daftarWarga, daftarMutasi, daftarKas, daftarDokumen, daftarPengurus, credentials]);
-
-  // Supabase connection, offline queue flush & initial sync (HANYA setelah pengguna login)
-  const refreshSupabaseConnection = useCallback(async () => {
-    if (!isLocalDbLoaded || !currentUser) return; // Cegah koneksi dan sync jika belum login
-
-    try {
-      const status = await checkSupabaseConnection();
-      setIsSupabaseConnected(status.isConnected);
-      setIsSupabaseTablesMissing(Boolean(status.tablesMissing));
-      setSupabaseErrorMessage(status.error);
-
-      if (status.isConnected) {
-        // 1. Kirim antrean offline terlebih dahulu agar data lokal offline tidak tertimpa!
-        await flushOfflineSyncQueue();
-
-        const latest = currentDataRef.current;
-
-        // 2. Seed data awal jika database di cloud masih benar-benar kosong
-        await seedInitialDataToSupabase({
-          profilRt: latest.profilRt,
-          daftarWarga: latest.daftarWarga,
-          daftarMutasi: latest.daftarMutasi,
-          daftarKas: latest.daftarKas,
-          daftarDokumen: latest.daftarDokumen,
-          daftarPengurus: latest.daftarPengurus,
-          credentials: latest.credentials,
-        });
-
-        // 3. Tarik data terbaru yang sudah sinkron dari Supabase Cloud
-        const cloudData = await fetchAllFromSupabase({
-          profilRt: latest.profilRt,
-          daftarWarga: latest.daftarWarga,
-          daftarMutasi: latest.daftarMutasi,
-          daftarKas: latest.daftarKas,
-          daftarDokumen: latest.daftarDokumen,
-          daftarPengurus: latest.daftarPengurus,
-          credentials: latest.credentials,
-        });
-
-        if (cloudData) {
-          // Merge data dengan proteksi: data lokal yang belum tersinkron ke cloud TIDAK BOLEH hilang
-          if (cloudData.daftarWarga && cloudData.daftarWarga.length > 0) {
-            setDaftarWarga(prev => {
-              const cloudIds = new Set(cloudData.daftarWarga.map(w => w.id));
-              const localPending = prev.filter(w => !cloudIds.has(w.id));
-              return [...cloudData.daftarWarga, ...localPending];
-            });
-          }
-          if (cloudData.daftarMutasi && cloudData.daftarMutasi.length > 0) {
-            setDaftarMutasi(prev => {
-              const cloudIds = new Set(cloudData.daftarMutasi.map(m => m.id));
-              const localPending = prev.filter(m => !cloudIds.has(m.id));
-              return [...cloudData.daftarMutasi, ...localPending];
-            });
-          }
-          if (cloudData.daftarKas && cloudData.daftarKas.length > 0) {
-            setDaftarKas(prev => {
-              const cloudIds = new Set(cloudData.daftarKas.map(k => k.id));
-              const localPending = prev.filter(k => !cloudIds.has(k.id));
-              return [...cloudData.daftarKas, ...localPending];
-            });
-          }
-          if (cloudData.daftarDokumen && cloudData.daftarDokumen.length > 0) {
-            setDaftarDokumen(prev => {
-              const cloudIds = new Set(cloudData.daftarDokumen.map(d => d.id));
-              const localPending = prev.filter(d => !cloudIds.has(d.id));
-              return [...cloudData.daftarDokumen, ...localPending];
-            });
-          }
-          if (cloudData.daftarPengurus && cloudData.daftarPengurus.length > 0) {
-            setDaftarPengurus(prev => {
-              const cloudIds = new Set(cloudData.daftarPengurus.map(p => p.id));
-              const localPending = prev.filter(p => !cloudIds.has(p.id));
-              return [...cloudData.daftarPengurus, ...localPending];
-            });
-          }
-          if (cloudData.profilRt) setProfilRt(cloudData.profilRt);
-          if (cloudData.credentials && cloudData.credentials.length > 0) {
-            setCredentials(cloudData.credentials);
-          }
-        }
-      }
-    } catch (err: any) {
-      console.error('Error during Supabase connection check/sync:', err);
-      setSupabaseErrorMessage(err?.message || 'Gagal tersambung ke Supabase');
-    }
-  }, [isLocalDbLoaded, currentUser]);
-
-  // Jalankan sinkronisasi cloud HANYA setelah IndexedDB lokal selesai dimuat DAN pengguna sudah login
-  useEffect(() => {
-    if (isLocalDbLoaded && currentUser) {
-      refreshSupabaseConnection();
-    }
-  }, [isLocalDbLoaded, currentUser, refreshSupabaseConnection]);
-
-  // Network listener & Supabase Realtime Subscription (HANYA setelah pengguna login)
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const handleOnline = () => {
-      setIsOnline(true);
-      refreshSupabaseConnection();
-    };
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // Langganan perubahan data realtime dari perangkat pengurus lain HANYA setelah login
-    const unsubscribeRealtime = subscribeToRealtimeChanges((table) => {
-      console.log(`[Realtime] Perubahan terdeteksi pada tabel: ${table}, memuat data terbaru...`);
-      refreshSupabaseConnection();
-    });
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      unsubscribeRealtime();
-    };
-  }, [currentUser, refreshSupabaseConnection]);
 
   // UI state
   const [activeTab, setActiveTab] = useState<TabId>('warga');
@@ -345,6 +158,7 @@ export default function App() {
   const [isThemeLogoModalOpen, setIsThemeLogoModalOpen] = useState(false);
   const [isAndroidApkModalOpen, setIsAndroidApkModalOpen] = useState(false);
   const [isShareOnlineModalOpen, setIsShareOnlineModalOpen] = useState(false);
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isMobileMenuSheetOpen, setIsMobileMenuSheetOpen] = useState(false);
   const [selectedKkFilter, setSelectedKkFilter] = useState<string | undefined>(undefined);

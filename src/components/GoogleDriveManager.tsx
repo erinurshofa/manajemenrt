@@ -59,6 +59,10 @@ import {
   getAccessToken,
 } from '../services/googleDriveAuth';
 import { ProfilRt, Warga, MutasiRecord, TransaksiKas, DokumenRt, KartuKeluargaData } from '../types';
+import { DriveHeader } from './drive/DriveHeader';
+import { PublicFolderSettingsModal } from './drive/PublicFolderSettingsModal';
+import { NewFolderModal, DeleteConfirmationModal, MoveFileModal } from './drive/DriveModals';
+import { DriveQuickActions } from './drive/DriveQuickActions';
 
 interface GoogleDriveManagerProps {
   profilRt: ProfilRt;
@@ -365,7 +369,7 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
         : (publicFolderId || undefined);
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const droppedFiles = Array.from(e.dataTransfer.files);
+      const droppedFiles = Array.from(e.dataTransfer.files) as File[];
       setIsUploading(true);
       setErrorMessage(null);
       try {
@@ -829,73 +833,13 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-amber-900 via-amber-800 to-stone-900 rounded-2xl p-6 text-white shadow-sm border border-amber-800/40 relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-200 text-xs font-semibold border border-amber-500/30">
-                <Cloud className="w-3.5 h-3.5" />
-                <span>Integrasi Resmi Google Workspace</span>
-              </div>
-              {configuredFolderId && (
-                <div
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-200 text-xs font-semibold border border-emerald-500/40"
-                  title={`ID Folder Cadangan: ${configuredFolderId}`}
-                >
-                  <Folder className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>Folder Kustom Aktif</span>
-                </div>
-              )}
-              {configuredServiceEmail && (
-                <div
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-200 text-xs font-semibold border border-blue-500/40"
-                  title={`Email Service Account: ${configuredServiceEmail}`}
-                >
-                  <Users className="w-3.5 h-3.5 text-blue-300" />
-                  <span className="max-w-[200px] truncate">{configuredServiceEmail}</span>
-                </div>
-              )}
-            </div>
-            <h1 className="text-2xl font-bold text-amber-50">Google Drive RT 02 Gasem Raya</h1>
-            <p className="text-amber-200/90 text-sm max-w-2xl">
-              Sinkronisasi dan simpan dokumen arsip RT, rekap data warga, laporan kas, dan cadangan sistem secara
-              aman di penyimpanan awan Google Drive Anda.
-            </p>
-          </div>
-
-          {/* Connect / User Info Section */}
-          <div className="flex items-center gap-3">
-            {!needsAuth && googleUser ? (
-              <div className="flex items-center gap-3 bg-white/10 backdrop-blur-xs px-3.5 py-2 rounded-xl border border-white/15">
-                {googleUser.photoURL ? (
-                  <img
-                    src={googleUser.photoURL}
-                    alt={googleUser.displayName || 'Google User'}
-                    className="w-9 h-9 rounded-full border border-white/40"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-amber-600 flex items-center justify-center font-bold text-white">
-                    <User className="w-5 h-5" />
-                  </div>
-                )}
-                <div className="text-left leading-tight pr-1">
-                  <div className="font-semibold text-xs text-amber-50">{googleUser.displayName || 'Pengguna Google'}</div>
-                  <div className="text-[11px] text-amber-200/80 truncate max-w-[140px]">{googleUser.email}</div>
-                </div>
-                <button
-                  id="btn-disconnect-google"
-                  onClick={handleGoogleLogout}
-                  className="p-1.5 hover:bg-rose-500/20 text-rose-200 hover:text-rose-100 rounded-lg transition-colors"
-                  title="Putus Sambungan Google Drive"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
+      <DriveHeader
+        configuredFolderId={configuredFolderId}
+        configuredServiceEmail={configuredServiceEmail}
+        needsAuth={needsAuth}
+        googleUser={googleUser}
+        onLogout={handleGoogleLogout}
+      />
 
       {/* Notifications */}
       {successMessage && (
@@ -1376,78 +1320,13 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
         /* When Authenticated: Full Google Drive Workspace */
         <div className="space-y-6">
           {/* Quick Actions Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Backup RT Data */}
-            <button
-              id="btn-drive-backup-all"
-              onClick={handleBackupAllRtData}
-              disabled={isUploading}
-              className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 hover:bg-amber-100/80 border border-amber-200/90 text-left transition-all shadow-2xs group cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-lg bg-amber-700 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <Database className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-amber-950">Cadangkan Data RT</div>
-                <div className="text-[11px] text-amber-800 truncate">
-                  Simpan warga, kas & AD/ART ke folder RT
-                </div>
-              </div>
-            </button>
-
-            {/* Export Warga CSV */}
-            <button
-              id="btn-drive-export-csv"
-              onClick={handleExportWargaCsv}
-              disabled={isUploading}
-              className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/90 text-left transition-all shadow-2xs group cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-lg bg-emerald-700 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <FileSpreadsheet className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-emerald-950">Ekspor Warga (.CSV)</div>
-                <div className="text-[11px] text-emerald-800 truncate">Simpan spreadsheet data penduduk</div>
-              </div>
-            </button>
-
-            {/* Upload Local File */}
-            <label
-              id="label-drive-upload"
-              className="flex items-center gap-3 p-4 rounded-xl bg-blue-50 hover:bg-blue-100/80 border border-blue-200/90 text-left transition-all shadow-2xs group cursor-pointer"
-            >
-              <input
-                type="file"
-                className="hidden"
-                onChange={handleFileUpload}
-                disabled={isUploading}
-              />
-              <div className="w-10 h-10 rounded-lg bg-blue-700 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <UploadCloud className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-blue-950">Unggah Berkas Baru</div>
-                <div className="text-[11px] text-blue-800 truncate">
-                  {isUploading ? 'Mengunggah...' : 'Upload PDF, Word, atau Foto'}
-                </div>
-              </div>
-            </label>
-
-            {/* Create New Folder */}
-            <button
-              id="btn-drive-new-folder"
-              onClick={() => setIsNewFolderOpen(true)}
-              className="flex items-center gap-3 p-4 rounded-xl bg-stone-50 hover:bg-stone-100/80 border border-stone-200/90 text-left transition-all shadow-2xs group cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-lg bg-stone-700 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <FolderPlus className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-stone-900">Buat Folder Baru</div>
-                <div className="text-[11px] text-stone-600 truncate">Rapikan berkas per kategori</div>
-              </div>
-            </button>
-          </div>
+          <DriveQuickActions
+            onBackupAll={handleBackupAllRtData}
+            onExportCsv={handleExportWargaCsv}
+            onFileUpload={handleFileUpload}
+            onOpenNewFolder={() => setIsNewFolderOpen(true)}
+            isUploading={isUploading}
+          />
 
           {/* Shortcut to RT 02 Public Folder */}
           {publicFolderId && (
@@ -1532,240 +1411,45 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
       </>
     )}
 
-      {/* Modal Pengaturan Folder ID Google Drive */}
-      {isFolderSettingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-amber-200 max-w-lg w-full p-6 space-y-5 shadow-2xl animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div className="flex items-center gap-2">
-                <Settings className="w-5 h-5 text-amber-800" />
-                <h3 className="font-bold text-stone-900 text-base">Atur Folder Google Drive RT</h3>
-              </div>
-              <button
-                onClick={() => setIsFolderSettingsOpen(false)}
-                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* 1. Modal Pengaturan Folder ID Google Drive */}
+      <PublicFolderSettingsModal
+        isOpen={isFolderSettingsOpen}
+        onClose={() => setIsFolderSettingsOpen(false)}
+        tempFolderInput={tempFolderInput}
+        setTempFolderInput={setTempFolderInput}
+        onSave={handleSavePublicFolderId}
+      />
 
-            <form onSubmit={handleSavePublicFolderId} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-stone-800 block">
-                  Link Lengkap Folder atau Folder ID:
-                </label>
-                <input
-                  type="text"
-                  value={tempFolderInput}
-                  onChange={e => setTempFolderInput(e.target.value)}
-                  placeholder="Contoh: https://drive.google.com/drive/folders/1ABCxyz123... atau ID folder"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-700/30 focus:border-amber-700"
-                />
-                <p className="text-[11px] text-stone-500">
-                  Anda bisa menempelkan URL sharing langsung dari Google Drive, sistem akan otomatis mengenali ID foldernya.
-                </p>
-              </div>
+      {/* 2. New Folder Modal */}
+      <NewFolderModal
+        isOpen={isNewFolderOpen}
+        onClose={() => setIsNewFolderOpen(false)}
+        newFolderName={newFolderName}
+        setNewFolderName={setNewFolderName}
+        onCreateFolder={handleCreateFolder}
+        isLoading={isLoading}
+      />
 
-              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs space-y-1.5">
-                <div className="font-bold flex items-center gap-1.5 text-amber-900">
-                  <ShieldCheck className="w-4 h-4 text-amber-700" /> Cara Agar Folder Terbuka Tanpa Harus Sign-In:
-                </div>
-                <ol className="list-decimal list-inside text-[11px] space-y-1 text-stone-700 pl-1">
-                  <li>Buka folder Anda di Google Drive.</li>
-                  <li>Klik kanan folder &rarr; pilih <b>Bagikan (Share)</b>.</li>
-                  <li>Ubah bagian Akses umum dari <i>Dibatasi</i> menjadi <b>"Siapa saja yang memiliki link"</b>.</li>
-                  <li>Pilih peran sebagai <b>Pelihat (Viewer)</b> agar aman.</li>
-                  <li>Klik <b>Salin link</b> dan tempelkan ke kolom di atas lalu klik Simpan.</li>
-                </ol>
-              </div>
+      {/* 3. Delete Confirmation Dialog */}
+      <DeleteConfirmationModal
+        fileToDelete={fileToDelete}
+        onCancel={() => setFileToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+      />
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsFolderSettingsOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-50 text-xs font-semibold cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-amber-800 hover:bg-amber-900 text-white text-xs font-semibold shadow-xs cursor-pointer"
-                >
-                  Simpan & Tampilkan Folder
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* New Folder Modal */}
-      {isNewFolderOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-stone-200 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FolderPlus className="w-5 h-5 text-amber-700" />
-                <h3 className="font-bold text-stone-900 text-sm">Buat Folder Baru di Drive</h3>
-              </div>
-              <button
-                onClick={() => setIsNewFolderOpen(false)}
-                className="p-1 rounded-lg text-stone-400 hover:text-stone-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateFolder} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-stone-700 mb-1">Nama Folder</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: Dokumen Warga 2026"
-                  value={newFolderName}
-                  onChange={e => setNewFolderName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-stone-300 text-xs focus:ring-2 focus:ring-amber-600"
-                  autoFocus
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsNewFolderOpen(false)}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-stone-600 hover:bg-stone-100"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isLoading || !newFolderName.trim()}
-                  className="px-4 py-1.5 rounded-lg text-xs font-medium text-white bg-amber-700 hover:bg-amber-800 disabled:opacity-50"
-                >
-                  Buat Folder
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MANDATORY Explicit Destructive Action Confirmation Dialog */}
-      {fileToDelete && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-rose-200 space-y-4 animate-scaleUp">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                <ShieldAlert className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-bold text-stone-900 text-sm">Hapus Berkas dari Google Drive?</h3>
-                <p className="text-xs text-stone-600 leading-relaxed">
-                  Apakah Anda yakin ingin menghapus berkas{' '}
-                  <span className="font-semibold text-stone-900">"{fileToDelete.name}"</span> secara permanen dari
-                  akun Google Drive Anda?
-                </p>
-                <p className="text-[11px] text-rose-600 font-medium pt-1">
-                  Peringatan: Tindakan penghapusan ini tidak dapat dibatalkan.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-stone-100">
-              <button
-                id="btn-cancel-delete"
-                onClick={() => setFileToDelete(null)}
-                disabled={isDeleting}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-700 bg-stone-100 hover:bg-stone-200 transition-colors"
-              >
-                Batal
-              </button>
-              <button
-                id="btn-confirm-delete"
-                onClick={handleConfirmDelete}
-                disabled={isDeleting}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition-colors flex items-center gap-1.5 shadow-2xs"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>{isDeleting ? 'Menghapus...' : 'Ya, Hapus Permanen'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Move File Modal */}
-      {fileToMove && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-blue-200 space-y-4 animate-scaleUp">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div className="flex items-center gap-2 text-blue-900">
-                <FolderInput className="w-5 h-5 text-blue-700" />
-                <h3 className="font-bold text-sm">Pindahkan Berkas / Folder</h3>
-              </div>
-              <button
-                onClick={() => setFileToMove(null)}
-                className="p-1 text-stone-400 hover:text-stone-700 rounded-lg cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-1 text-xs text-stone-600">
-              <p>Pilih folder tujuan untuk:</p>
-              <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200 font-semibold text-stone-900 truncate flex items-center gap-2">
-                <span>📁</span>
-                <span className="truncate">{fileToMove.name}</span>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-stone-700 block">Pilih Folder Tujuan:</label>
-              <select
-                value={targetMoveFolderId}
-                onChange={e => setTargetMoveFolderId(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-blue-600 focus:outline-none bg-white"
-              >
-                <option value="root">📂 Folder Utama (Google Drive Saya / Root)</option>
-                {publicFolderId && (
-                  <option value={publicFolderId}>📁 Folder Berkas & Dokumen Terbuka RT 02</option>
-                )}
-                {configuredFolderId && configuredFolderId !== publicFolderId && (
-                  <option value={configuredFolderId}>📂 Folder Khusus RT Gasem (Kustom)</option>
-                )}
-                {files
-                  .filter(f => f.mimeType === 'application/vnd.google-apps.folder' && f.id !== fileToMove.id)
-                  .map(f => (
-                    <option key={f.id} value={f.id}>
-                      📁 {f.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-stone-100">
-              <button
-                type="button"
-                onClick={() => setFileToMove(null)}
-                disabled={isMoving}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-700 bg-stone-100 hover:bg-stone-200 transition-colors cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmMove}
-                disabled={isMoving}
-                className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
-              >
-                <FolderInput className="w-3.5 h-3.5" />
-                <span>{isMoving ? 'Memindahkan...' : 'Pindahkan Sekarang'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 4. Move File Modal */}
+      <MoveFileModal
+        fileToMove={fileToMove}
+        onCancel={() => setFileToMove(null)}
+        onConfirm={handleConfirmMove}
+        isMoving={isMoving}
+        targetMoveFolderId={targetMoveFolderId}
+        setTargetMoveFolderId={setTargetMoveFolderId}
+        publicFolderId={publicFolderId}
+        configuredFolderId={configuredFolderId}
+        folderList={files}
+      />
     </div>
   );
 };

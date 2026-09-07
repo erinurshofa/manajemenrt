@@ -10,7 +10,7 @@ import {
   Info,
   ShieldCheck,
 } from 'lucide-react';
-import { UserSession, ProfilRt } from '../types';
+import { UserSession, ProfilRt, UserCredential } from '../types';
 import { BatikLogo } from './BatikLogo';
 import { loginWithSupabase } from '../services/supabaseAuth';
 
@@ -20,7 +20,7 @@ interface LoginModalProps {
   profilRt: ProfilRt;
   onLoginSuccess: (session: UserSession) => void;
   daftarWarga?: any[];
-  credentials?: any[];
+  credentials?: UserCredential[];
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({
@@ -28,6 +28,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onClose,
   profilRt,
   onLoginSuccess,
+  credentials = [],
 }) => {
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
