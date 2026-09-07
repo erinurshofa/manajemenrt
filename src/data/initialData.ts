@@ -181,6 +181,16 @@ export const INITIAL_CREDENTIALS: UserCredential[] = [
     noHp: '0819-8888-9999',
     createdAt: '2026-09-01',
   },
+  {
+    id: 'cred-admin',
+    nik: 'admin02',
+    password: 'admin123',
+    nama: 'Administrator Operasional RT',
+    role: 'admin',
+    jabatan: 'Admin Pelayanan RT',
+    noHp: '0811-2233-4455',
+    createdAt: '2026-09-01',
+  },
 ];
 
 // Data Warga telah dikosongkan sesuai permintaan pengguna

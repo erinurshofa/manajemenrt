@@ -1,4 +1,4 @@
-import { Warga, MutasiRecord, TransaksiKas, DokumenRt, PengurusRt } from '../types';
+import { Warga, MutasiRecord, TransaksiKas, DokumenRt, PengurusRt, UserCredential } from '../types';
 
 /**
  * Menghasilkan kumpulan data warga dummy realistis untuk keperluan testing dan benchmarking UI.
@@ -429,6 +429,86 @@ export function generateDummyPengurus(): PengurusRt[] {
       alamat: 'Jl. Gasem Raya No. 27',
       periode: '2024 - 2029',
       tugasPokok: 'Mengkoordinasikan kegiatan senam sehat warga, posyandu lansia & balita, serta penyaluran dana sosial warga sakit/duka.',
+    },
+  ];
+}
+
+/**
+ * Menghasilkan data akun pengguna dummy realistis untuk setiap peran (UserRole).
+ * Mencakup 7 peran: developer, ketua_rt, sekretaris, bendahara, pengurus, warga, admin.
+ */
+export function generateDummyCredentials(): UserCredential[] {
+  const today = new Date().toISOString().split('T')[0];
+  return [
+    {
+      id: 'cred-gen-dev',
+      nik: 'developer',
+      password: 'developer123',
+      nama: 'Developer / Superadmin RT',
+      role: 'developer',
+      jabatan: 'System Engineer & Developer',
+      noHp: '0812-0000-0001',
+      createdAt: today,
+    },
+    {
+      id: 'cred-gen-ketua',
+      nik: 'ketuart02',
+      password: 'ketua123',
+      nama: 'H. Bambang Sudarmono, S.T.',
+      role: 'ketua_rt',
+      jabatan: 'Ketua RT 02 (Pimpinan)',
+      noHp: '0812-3456-7890',
+      createdAt: today,
+    },
+    {
+      id: 'cred-gen-sekre',
+      nik: 'sekretaris02',
+      password: 'sekretaris123',
+      nama: 'Drs. Supriyanto',
+      role: 'sekretaris',
+      jabatan: 'Sekretaris RT 02',
+      noHp: '0813-2222-3333',
+      createdAt: today,
+    },
+    {
+      id: 'cred-gen-benda',
+      nik: 'bendahara02',
+      password: 'bendahara123',
+      nama: 'Dra. Hj. Siti Rochmah',
+      role: 'bendahara',
+      jabatan: 'Bendahara Kas RT 02',
+      noHp: '0815-4444-5555',
+      createdAt: today,
+    },
+    {
+      id: 'cred-gen-pengurus',
+      nik: 'pengurus02',
+      password: 'pengurus123',
+      nama: 'Sutrisno Budiman',
+      role: 'pengurus',
+      jabatan: 'Koordinator Seksi Keamanan & Ronda',
+      noHp: '0817-6666-7777',
+      createdAt: today,
+    },
+    {
+      id: 'cred-gen-warga',
+      nik: 'warga02',
+      password: 'warga123',
+      nama: 'Aisyah Rahmawati, S.Kom.',
+      role: 'warga',
+      jabatan: 'Warga Penduduk RT 02',
+      noHp: '0819-8888-9999',
+      createdAt: today,
+    },
+    {
+      id: 'cred-gen-admin',
+      nik: 'admin02',
+      password: 'admin123',
+      nama: 'Administrator Operasional RT',
+      role: 'admin',
+      jabatan: 'Admin Pelayanan Administrasi RT',
+      noHp: '0811-2233-4455',
+      createdAt: today,
     },
   ];
 }

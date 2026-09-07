@@ -30,6 +30,7 @@ import {
   isDeveloper,
   isAdminOrLeader,
 } from '../utils/permissions';
+import { generateDummyCredentials } from '../utils/dummyDataGenerator';
 
 interface MatriksPeranPenggunaProps {
   credentials: UserCredential[];
@@ -101,6 +102,22 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
     setFormNoHp('');
     setFormError(null);
     setIsModalOpen(true);
+  };
+
+  // Generate Akun Pengguna untuk Setiap Peran
+  const handleGenerateAllRoles = () => {
+    if (confirm('Generate otomatis akun pengguna untuk seluruh 7 peran (Developer, Ketua RT, Sekretaris, Bendahara, Pengurus, Warga, dan Admin)? Akun dengan NIK yang sudah ada tidak akan diduplikasi.')) {
+      const dummyCreds = generateDummyCredentials();
+      let addedCount = 0;
+      dummyCreds.forEach(dc => {
+        const exists = credentials.some(c => c.nik.toLowerCase() === dc.nik.toLowerCase());
+        if (!exists) {
+          onTambahCredential(dc);
+          addedCount++;
+        }
+      });
+      alert(`Berhasil menambahkan ${addedCount} akun peran baru! Silakan gunakan untuk login pengujian.`);
+    }
   };
 
   // Buka Modal Edit
@@ -402,13 +419,24 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
             </div>
 
             {isLeader && (
-              <button
-                onClick={handleOpenAdd}
-                className="w-full md:w-auto px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-amber-700 to-amber-900 hover:from-amber-800 hover:to-amber-950 transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>+ Tambah Akun Pengguna</span>
-              </button>
+              <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleGenerateAllRoles}
+                  className="w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                  title="Generate otomatis akun pengguna untuk setiap peran"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-700" />
+                  <span>Generate Akun Semua Peran</span>
+                </button>
+                <button
+                  onClick={handleOpenAdd}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-amber-700 to-amber-900 hover:from-amber-800 hover:to-amber-950 transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>+ Tambah Akun Pengguna</span>
+                </button>
+              </div>
             )}
           </div>
 

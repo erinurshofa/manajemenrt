@@ -5,6 +5,7 @@ import {
   generateDummyMutasi,
   generateDummyDokumen,
   generateDummyPengurus,
+  generateDummyCredentials,
 } from '../dummyDataGenerator';
 
 describe('dummyDataGenerator', () => {
@@ -60,6 +61,26 @@ describe('dummyDataGenerator', () => {
       expect(p.jabatan).toBeTruthy();
       expect(p.noHp).toBeTruthy();
       expect(p.periode).toContain('2024');
+    });
+  });
+
+  it('should generate dummy credentials covering all 7 roles', () => {
+    const creds = generateDummyCredentials();
+    expect(creds.length).toBe(7);
+    const roles = creds.map(c => c.role);
+    expect(roles).toContain('developer');
+    expect(roles).toContain('ketua_rt');
+    expect(roles).toContain('sekretaris');
+    expect(roles).toContain('bendahara');
+    expect(roles).toContain('pengurus');
+    expect(roles).toContain('warga');
+    expect(roles).toContain('admin');
+
+    creds.forEach(c => {
+      expect(c.nik).toBeTruthy();
+      expect(c.password).toBeTruthy();
+      expect(c.nama).toBeTruthy();
+      expect(c.role).toBeTruthy();
     });
   });
 });

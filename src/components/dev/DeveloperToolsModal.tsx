@@ -37,6 +37,7 @@ import {
   generateDummyMutasi,
   generateDummyDokumen,
   generateDummyPengurus,
+  generateDummyCredentials,
 } from '../../utils/dummyDataGenerator';
 import {
   INITIAL_WARGA,
@@ -208,21 +209,40 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
 
   // 4. Inject Dummy Sample Data
   const handleInjectDummyData = () => {
-    if (confirm('Tambahkan data lengkap contoh (warga, kas, mutasi, arsip dokumen, & pengurus RT) untuk pengujian performa UI?')) {
+    if (confirm('Tambahkan data lengkap contoh (warga, kas, mutasi, arsip dokumen, pengurus RT, & akun peran) untuk pengujian performa UI?')) {
       const dummyWarga = generateDummyWarga();
       const dummyKas = generateDummyKas();
       const dummyMutasi = generateDummyMutasi(dummyWarga);
       const dummyDokumen = generateDummyDokumen();
       const dummyPengurus = generateDummyPengurus();
+      const dummyCreds = generateDummyCredentials();
 
       setDaftarWarga(prev => [...dummyWarga, ...prev]);
       setDaftarKas(prev => [...dummyKas, ...prev]);
       setDaftarMutasi(prev => [...dummyMutasi, ...prev]);
       setDaftarDokumen(prev => [...dummyDokumen, ...prev]);
       setDaftarPengurus(prev => [...dummyPengurus, ...prev]);
+      setCredentials(prev => {
+        const existingNiks = new Set(prev.map(c => c.nik.toLowerCase()));
+        const toAdd = dummyCreds.filter(c => !existingNiks.has(c.nik.toLowerCase()));
+        return [...prev, ...toAdd];
+      });
 
-      showNotice(`Berhasil menambahkan ${dummyWarga.length} warga, ${dummyKas.length} transaksi kas, ${dummyDokumen.length} dokumen arsip, dan ${dummyPengurus.length} pengurus contoh!`, 'success');
+      showNotice(`Berhasil menambahkan ${dummyWarga.length} warga, ${dummyKas.length} kas, ${dummyDokumen.length} dokumen, ${dummyPengurus.length} pengurus, dan akun peran lengkap!`, 'success');
     }
+  };
+
+  // 4b. Generate Akun Pengguna Setiap Peran
+  const handleGenerateUserRoles = () => {
+    const dummyCreds = generateDummyCredentials();
+    let count = 0;
+    setCredentials(prev => {
+      const existingNiks = new Set(prev.map(c => c.nik.toLowerCase()));
+      const toAdd = dummyCreds.filter(c => !existingNiks.has(c.nik.toLowerCase()));
+      count = toAdd.length;
+      return [...prev, ...toAdd];
+    });
+    showNotice(`Berhasil men-generate ${count} akun pengguna baru untuk setiap peran!`, 'success');
   };
 
   // 5. Reset to Clean Initial Data
@@ -699,33 +719,55 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* 1. Tambah Data Uji */}
-                <div className="p-4 rounded-xl bg-white border border-stone-200 shadow-2xs">
-                  <h4 className="font-bold text-sm text-stone-900">Tambahkan Data Uji (Seeder)</h4>
-                  <p className="mt-1 text-xs text-stone-600 leading-relaxed">
-                    Menyisipkan 8 warga contoh (3 KK), 5 transaksi kas rutin & pembangunan, 1 mutasi domisili, 5 dokumen arsip resmi RT, serta 6 pengurus RT realistis ke dalam sistem.
-                  </p>
+                <div className="p-4 rounded-xl bg-white border border-stone-200 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <h4 className="font-bold text-sm text-stone-900">Tambahkan Data Uji (Seeder)</h4>
+                    <p className="mt-1 text-xs text-stone-600 leading-relaxed">
+                      Menyisipkan 8 warga contoh (3 KK), 5 transaksi kas, 1 mutasi domisili, 5 dokumen arsip, 6 pengurus RT, dan akun peran ke sistem.
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={handleInjectDummyData}
-                    className="mt-4 px-4 py-2 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow cursor-pointer active:scale-95"
+                    className="mt-4 px-3 py-2 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer active:scale-95"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>Inject Data Uji Realistis</span>
+                    <span>Inject Data Uji Lengkap</span>
                   </button>
                 </div>
 
-                {/* 2. Reset Default Data */}
-                <div className="p-4 rounded-xl bg-white border border-stone-200 shadow-2xs">
-                  <h4 className="font-bold text-sm text-stone-900">Reset ke Data Default Pabrikan</h4>
-                  <p className="mt-1 text-xs text-stone-600 leading-relaxed">
-                    Membersihkan data tambahan dan mengembalikan seluruh koleksi (warga, kas, profil RT) ke kondisi awal bawaan installer.
-                  </p>
+                {/* 2. Generate Akun Pengguna Setiap Peran */}
+                <div className="p-4 rounded-xl bg-white border border-stone-200 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <h4 className="font-bold text-sm text-stone-900">Generate Akun Setiap Peran</h4>
+                    <p className="mt-1 text-xs text-stone-600 leading-relaxed">
+                      Membuat akun uji siap pakai untuk seluruh 7 peran: Developer, Ketua RT, Sekretaris, Bendahara, Pengurus, Warga, dan Admin.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGenerateUserRoles}
+                    className="mt-4 px-3 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer active:scale-95"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Generate Akun 7 Peran</span>
+                  </button>
+                </div>
+
+                {/* 3. Reset Default Data */}
+                <div className="p-4 rounded-xl bg-white border border-stone-200 shadow-2xs flex flex-col justify-between">
+                  <div>
+                    <h4 className="font-bold text-sm text-stone-900">Reset ke Default Pabrikan</h4>
+                    <p className="mt-1 text-xs text-stone-600 leading-relaxed">
+                      Membersihkan data tambahan dan mengembalikan seluruh koleksi (warga, kas, profil RT) ke kondisi awal bawaan installer.
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={handleResetToInitialData}
-                    className="mt-4 px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow cursor-pointer active:scale-95"
+                    className="mt-4 px-3 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer active:scale-95"
                   >
                     <AlertTriangle className="w-3.5 h-3.5" />
                     <span>Reset Seluruh Data</span>
