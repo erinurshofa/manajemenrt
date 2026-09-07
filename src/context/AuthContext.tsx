@@ -1,10 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { UserSession, UserCredential } from '../types';
+import { UserSession, UserCredential, UserRole } from '../types';
 import { INITIAL_CREDENTIALS } from '../data/initialData';
 
 interface AuthContextType {
   currentUser: UserSession | null;
   setCurrentUser: React.Dispatch<React.SetStateAction<UserSession | null>>;
+  effectiveUser: UserSession | null;
+  effectiveRole: UserRole | undefined;
+  simulatedRole: UserRole | null;
+  setSimulatedRole: (role: UserRole | null) => void;
   credentials: UserCredential[];
   setCredentials: React.Dispatch<React.SetStateAction<UserCredential[]>>;
   login: (session: UserSession) => void;
@@ -21,6 +25,7 @@ export const AuthProvider: React.FC<{
   initialCredentials?: UserCredential[];
 }> = ({ children, initialCredentials = INITIAL_CREDENTIALS }) => {
   const [credentials, setCredentials] = useState<UserCredential[]>(initialCredentials);
+  const [simulatedRole, setSimulatedRole] = useState<UserRole | null>(null);
 
   const [currentUser, setCurrentUser] = useState<UserSession | null>(() => {
     if (typeof window !== 'undefined') {
@@ -36,22 +41,34 @@ export const AuthProvider: React.FC<{
     return null;
   });
 
+  // Effective user & role considering developer impersonation
+  const effectiveUser: UserSession | null = currentUser
+    ? currentUser.role === 'developer' && simulatedRole
+      ? { ...currentUser, role: simulatedRole }
+      : currentUser
+    : null;
+
+  const effectiveRole: UserRole | undefined = effectiveUser?.role;
+
   useEffect(() => {
     if (currentUser) {
       sessionStorage.setItem('gasemraya_auth', JSON.stringify(currentUser));
     } else {
       sessionStorage.removeItem('gasemraya_auth');
+      setSimulatedRole(null);
     }
   }, [currentUser]);
 
   const login = (session: UserSession) => {
     setCurrentUser(session);
+    setSimulatedRole(null);
     sessionStorage.setItem('gasemraya_auth', JSON.stringify(session));
   };
 
   const logout = () => {
     if (typeof window !== 'undefined' && window.confirm('Apakah Anda yakin ingin keluar dari sistem Gasem Raya RT 02?')) {
       setCurrentUser(null);
+      setSimulatedRole(null);
       sessionStorage.removeItem('gasemraya_auth');
       localStorage.removeItem('gasemraya_auth');
     }
@@ -74,6 +91,10 @@ export const AuthProvider: React.FC<{
       value={{
         currentUser,
         setCurrentUser,
+        effectiveUser,
+        effectiveRole,
+        simulatedRole,
+        setSimulatedRole,
         credentials,
         setCredentials,
         login,

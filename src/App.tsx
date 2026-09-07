@@ -1,13 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react';
 import { Sidebar, TabId } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
 import { DashboardStats } from './components/DashboardStats';
 import { DaftarWarga } from './components/DaftarWarga';
 import { DaftarKeluarga } from './components/DaftarKeluarga';
-import { LaporanBulanan } from './components/LaporanBulanan';
 import { MutasiManager } from './components/MutasiManager';
-import { BukuKasKeuangan } from './components/BukuKasKeuangan';
-import { ArsipDokumen } from './components/ArsipDokumen';
 import { StrukturPengurus } from './components/StrukturPengurus';
 import { ModalFormWarga } from './components/ModalFormWarga';
 import { ModalDetailWarga } from './components/ModalDetailWarga';
@@ -19,14 +16,42 @@ import { PengaturanTemaLogoModal } from './components/PengaturanTemaLogoModal';
 import { AndroidApkModal } from './components/AndroidApkModal';
 import { ShareOnlineModal } from './components/ShareOnlineModal';
 import { SupabaseConfigModal } from './components/SupabaseConfigModal';
-import { AsistenAiModal } from './components/AsistenAiModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { MobileMenuSheet } from './components/MobileMenuSheet';
-import { MatriksPeranPengguna } from './components/MatriksPeranPengguna';
-import { Sparkles } from 'lucide-react';
-import { GoogleDriveManager } from './components/GoogleDriveManager';
+import { Sparkles, Loader2 } from 'lucide-react';
+import { DevRoleBanner } from './components/dev/DevRoleBanner';
 import { usePWAInstall } from './hooks/usePWAInstall';
 import { useRtSync } from './hooks/useRtSync';
+
+// Lazy Loaded Components for Maximum Bundle Performance & Faster Mobile Initial Load
+const BukuKasKeuangan = React.lazy(() =>
+  import('./components/BukuKasKeuangan').then(m => ({ default: m.BukuKasKeuangan }))
+);
+const GoogleDriveManager = React.lazy(() =>
+  import('./components/GoogleDriveManager').then(m => ({ default: m.GoogleDriveManager }))
+);
+const MatriksPeranPengguna = React.lazy(() =>
+  import('./components/MatriksPeranPengguna').then(m => ({ default: m.MatriksPeranPengguna }))
+);
+const ArsipDokumen = React.lazy(() =>
+  import('./components/ArsipDokumen').then(m => ({ default: m.ArsipDokumen }))
+);
+const LaporanBulanan = React.lazy(() =>
+  import('./components/LaporanBulanan').then(m => ({ default: m.LaporanBulanan }))
+);
+const AsistenAiModal = React.lazy(() =>
+  import('./components/AsistenAiModal').then(m => ({ default: m.AsistenAiModal }))
+);
+const DeveloperToolsModal = React.lazy(() =>
+  import('./components/dev/DeveloperToolsModal').then(m => ({ default: m.DeveloperToolsModal }))
+);
+
+const PageSuspenseFallback = () => (
+  <div className="flex flex-col items-center justify-center min-h-[360px] p-8 text-center space-y-3 bg-white/60 rounded-2xl border border-stone-200/80">
+    <Loader2 className="w-8 h-8 text-amber-700 animate-spin" />
+    <p className="text-xs font-semibold text-stone-600">Memuat modul aplikasi...</p>
+  </div>
+);
 import {
   syncWargaUpsert,
   syncWargaDelete,
@@ -51,6 +76,7 @@ import {
   PengurusRt,
   UserSession,
   UserCredential,
+  UserRole,
   ThemeConfig,
   LogoConfig,
 } from './types';
@@ -115,8 +141,43 @@ export default function App() {
       sessionStorage.setItem('gasemraya_auth', JSON.stringify(currentUser));
     } else {
       sessionStorage.removeItem('gasemraya_auth');
+      setSimulatedRole(null);
     }
   }, [currentUser]);
+
+  // Developer Impersonation State
+  const [simulatedRole, setSimulatedRole] = useState<UserRole | null>(() => {
+    if (typeof window !== 'undefined') {
+      return (sessionStorage.getItem('gasemraya_simulated_role') as UserRole) || null;
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (simulatedRole) {
+      sessionStorage.setItem('gasemraya_simulated_role', simulatedRole);
+    } else {
+      sessionStorage.removeItem('gasemraya_simulated_role');
+    }
+  }, [simulatedRole]);
+
+  // Developer Tools Modal State
+  const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
+
+  // Original developer identity check
+  const isRealDeveloper = currentUser?.role === 'developer';
+
+  // Effective user session considering role impersonation
+  const effectiveUser: UserSession | null = useMemo(() => {
+    if (!currentUser) return null;
+    if (isRealDeveloper && simulatedRole) {
+      return {
+        ...currentUser,
+        role: simulatedRole,
+      };
+    }
+    return currentUser;
+  }, [currentUser, isRealDeveloper, simulatedRole]);
 
   // IndexedDB Resilient Offline & Supabase Cloud Realtime Synchronizer
   const {
@@ -188,8 +249,10 @@ export default function App() {
   const handleLogout = () => {
     if (window.confirm('Apakah Anda yakin ingin keluar dari sistem Gasem Raya RT 02?')) {
       setCurrentUser(null);
+      setSimulatedRole(null);
       setIsSupabaseConnected(false);
       sessionStorage.removeItem('gasemraya_auth');
+      sessionStorage.removeItem('gasemraya_simulated_role');
       localStorage.removeItem('gasemraya_auth');
     }
   };
@@ -419,171 +482,195 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-[#fdfbf7] overflow-hidden font-sans text-stone-800 antialiased">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={tab => {
-          setActiveTab(tab);
-          if (tab !== 'kk') setSelectedKkFilter(undefined);
-        }}
-        profilRt={profilRt}
-        isMobileOpen={isMobileOpen}
-        onCloseMobile={() => setIsMobileOpen(false)}
-        onOpenAddWarga={handleOpenAddWarga}
-        onOpenSettings={() => setSettingsOpen(true)}
-        currentUser={currentUser}
-        onOpenLogin={() => setIsLoginModalOpen(true)}
-        onLogout={handleLogout}
-        onOpenThemeModal={() => setIsThemeLogoModalOpen(true)}
-        onOpenAndroidApk={() => setIsAndroidApkModalOpen(true)}
-      />
+    <div className="flex flex-col h-screen w-full bg-[#fdfbf7] overflow-hidden font-sans text-stone-800 antialiased">
+      {/* Developer Impersonation Floating Banner (Active when developer simulates another role) */}
+      {isRealDeveloper && (
+        <DevRoleBanner
+          simulatedRole={simulatedRole}
+          onResetToDeveloper={() => setSimulatedRole(null)}
+          onSwitchRole={r => setSimulatedRole(r)}
+          onOpenDevTools={() => setIsDevToolsOpen(true)}
+        />
+      )}
 
-      {/* Main Layout Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        {/* Top Header */}
-        <TopHeader
+      <div className="flex flex-1 min-h-0 w-full overflow-hidden">
+        {/* Sidebar Navigation */}
+        <Sidebar
           activeTab={activeTab}
+          setActiveTab={tab => {
+            setActiveTab(tab);
+            if (tab !== 'kk') setSelectedKkFilter(undefined);
+          }}
           profilRt={profilRt}
-          onToggleMobileMenu={() => setIsMobileOpen(true)}
+          isMobileOpen={isMobileOpen}
+          onCloseMobile={() => setIsMobileOpen(false)}
           onOpenAddWarga={handleOpenAddWarga}
           onOpenSettings={() => setSettingsOpen(true)}
-          onOpenCetakLaporan={() => setActiveTab('laporan')}
-          currentUser={currentUser}
+          currentUser={effectiveUser}
           onOpenLogin={() => setIsLoginModalOpen(true)}
           onLogout={handleLogout}
           onOpenThemeModal={() => setIsThemeLogoModalOpen(true)}
           onOpenAndroidApk={() => setIsAndroidApkModalOpen(true)}
-          onOpenShareOnline={() => setIsShareOnlineModalOpen(true)}
-          isSupabaseConnected={isSupabaseConnected}
-          tablesMissing={isSupabaseTablesMissing}
-          onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
-          onOpenAiModal={() => setIsAiModalOpen(true)}
         />
 
-        {/* Scrollable Main Content */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 pb-28 md:pb-8">
-          {/* Top Summary Stats (Only on demographic tabs) */}
-          {(activeTab === 'warga' || activeTab === 'kk' || activeTab === 'laporan' || activeTab === 'mutasi') && (
-            <DashboardStats
-              daftarWarga={daftarWarga}
-              daftarKk={daftarKk}
-              totalMutasiBulanIni={totalMutasiBulanIni}
-              onNavigateToTab={setActiveTab}
-            />
-          )}
+        {/* Main Layout Area */}
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+          {/* Top Header */}
+          <TopHeader
+            activeTab={activeTab}
+            profilRt={profilRt}
+            onToggleMobileMenu={() => setIsMobileOpen(true)}
+            onOpenAddWarga={handleOpenAddWarga}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenCetakLaporan={() => setActiveTab('laporan')}
+            currentUser={effectiveUser}
+            onOpenLogin={() => setIsLoginModalOpen(true)}
+            onLogout={handleLogout}
+            onOpenThemeModal={() => setIsThemeLogoModalOpen(true)}
+            onOpenAndroidApk={() => setIsAndroidApkModalOpen(true)}
+            onOpenShareOnline={() => setIsShareOnlineModalOpen(true)}
+            isSupabaseConnected={isSupabaseConnected}
+            tablesMissing={isSupabaseTablesMissing}
+            onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+            onOpenAiModal={() => setIsAiModalOpen(true)}
+            onOpenDevTools={() => setIsDevToolsOpen(true)}
+            isDeveloperUser={isRealDeveloper}
+          />
 
-          {/* Tab 1: Data Warga (Buku Induk Kependudukan) */}
-          {activeTab === 'warga' && (
-            <DaftarWarga
-              daftarWarga={daftarWarga}
-              onTambahWarga={handleOpenAddWarga}
-              onEditWarga={handleEditWarga}
-              onHapusWarga={handleHapusWarga}
-              onLihatDetail={warga => setDetailWarga(warga)}
-              onPilihKk={handlePilihKkFromWarga}
-              currentUser={currentUser}
-            />
-          )}
+          {/* Scrollable Main Content */}
+          <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 pb-28 md:pb-8">
+            {/* Top Summary Stats (Only on demographic tabs) */}
+            {(activeTab === 'warga' || activeTab === 'kk' || activeTab === 'laporan' || activeTab === 'mutasi') && (
+              <DashboardStats
+                daftarWarga={daftarWarga}
+                daftarKk={daftarKk}
+                totalMutasiBulanIni={totalMutasiBulanIni}
+                onNavigateToTab={setActiveTab}
+              />
+            )}
 
-          {/* Tab 2: Kartu Keluarga (KK Penghubung Data Keluarga 1 KK) */}
-          {activeTab === 'kk' && (
-            <DaftarKeluarga
-              daftarKk={daftarKk}
-              onTambahAnggotaKk={handleTambahAnggotaKk}
-              onCetakKk={kk => setCetakKkData(kk)}
-              onEditWarga={handleEditWarga}
-              onLihatDetailWarga={warga => setDetailWarga(warga)}
-              initialSelectedKk={selectedKkFilter}
-              currentUser={currentUser}
-            />
-          )}
+            {/* Tab 1: Data Warga (Buku Induk Kependudukan) */}
+            {activeTab === 'warga' && (
+              <DaftarWarga
+                daftarWarga={daftarWarga}
+                onTambahWarga={handleOpenAddWarga}
+                onEditWarga={handleEditWarga}
+                onHapusWarga={handleHapusWarga}
+                onLihatDetail={warga => setDetailWarga(warga)}
+                onPilihKk={handlePilihKkFromWarga}
+                currentUser={effectiveUser}
+              />
+            )}
 
-          {/* Tab 3: Kas & Pembukuan Keuangan RT */}
-          {activeTab === 'kas' && (
-            <BukuKasKeuangan
-              daftarKas={daftarKas}
-              profilRt={profilRt}
-              daftarWarga={daftarWarga}
-              onTambahKas={handleTambahKas}
-              onHapusKas={handleHapusKas}
-              currentUser={currentUser}
-            />
-          )}
+            {/* Tab 2: Kartu Keluarga (KK Penghubung Data Keluarga 1 KK) */}
+            {activeTab === 'kk' && (
+              <DaftarKeluarga
+                daftarKk={daftarKk}
+                onTambahAnggotaKk={handleTambahAnggotaKk}
+                onCetakKk={kk => setCetakKkData(kk)}
+                onEditWarga={handleEditWarga}
+                onLihatDetailWarga={warga => setDetailWarga(warga)}
+                initialSelectedKk={selectedKkFilter}
+                currentUser={effectiveUser}
+              />
+            )}
 
-          {/* Tab 4: Arsip Dokumen & AD/ART RT */}
-          {activeTab === 'dokumen' && (
-            <ArsipDokumen
-              daftarDokumen={daftarDokumen}
-              profilRt={profilRt}
-              onTambahDokumen={handleTambahDokumen}
-              onHapusDokumen={handleHapusDokumen}
-              onNavigateToDrive={() => setActiveTab('drive')}
-              currentUser={currentUser}
-            />
-          )}
+            {/* Tab 3: Kas & Pembukuan Keuangan RT (Lazy Loaded) */}
+            {activeTab === 'kas' && (
+              <Suspense fallback={<PageSuspenseFallback />}>
+                <BukuKasKeuangan
+                  daftarKas={daftarKas}
+                  profilRt={profilRt}
+                  daftarWarga={daftarWarga}
+                  onTambahKas={handleTambahKas}
+                  onHapusKas={handleHapusKas}
+                  currentUser={effectiveUser}
+                />
+              </Suspense>
+            )}
 
-          {/* Tab Google Drive RT (Cloud Storage Workspace) */}
-          {activeTab === 'drive' && (
-            <GoogleDriveManager
-              profilRt={profilRt}
-              daftarWarga={daftarWarga}
-              daftarKk={daftarKk}
-              daftarKas={daftarKas}
-              daftarMutasi={daftarMutasi}
-              daftarDokumen={daftarDokumen}
-            />
-          )}
+            {/* Tab 4: Arsip Dokumen & AD/ART RT (Lazy Loaded) */}
+            {activeTab === 'dokumen' && (
+              <Suspense fallback={<PageSuspenseFallback />}>
+                <ArsipDokumen
+                  daftarDokumen={daftarDokumen}
+                  profilRt={profilRt}
+                  onTambahDokumen={handleTambahDokumen}
+                  onHapusDokumen={handleHapusDokumen}
+                  onNavigateToDrive={() => setActiveTab('drive')}
+                  currentUser={effectiveUser}
+                />
+              </Suspense>
+            )}
 
-          {/* Tab 5: Susunan & Struktur Pengurus RT */}
-          {activeTab === 'pengurus' && (
-            <StrukturPengurus
-              daftarPengurus={daftarPengurus}
-              profilRt={profilRt}
-              daftarWarga={daftarWarga}
-              onTambahPengurus={handleTambahPengurus}
-              onEditPengurus={handleEditPengurus}
-              onHapusPengurus={handleHapusPengurus}
-              currentUser={currentUser}
-            />
-          )}
+            {/* Tab Google Drive RT (Lazy Loaded) */}
+            {activeTab === 'drive' && (
+              <Suspense fallback={<PageSuspenseFallback />}>
+                <GoogleDriveManager
+                  profilRt={profilRt}
+                  daftarWarga={daftarWarga}
+                  daftarKk={daftarKk}
+                  daftarKas={daftarKas}
+                  daftarMutasi={daftarMutasi}
+                  daftarDokumen={daftarDokumen}
+                />
+              </Suspense>
+            )}
 
-          {/* Tab 6: Laporan Rekapitulasi Penduduk Bulanan Siap Cetak */}
-          {activeTab === 'laporan' && (
-            <LaporanBulanan
-              daftarWarga={daftarWarga}
-              daftarMutasi={daftarMutasi}
-              profilRt={profilRt}
-            />
-          )}
+            {/* Tab 5: Susunan & Struktur Pengurus RT */}
+            {activeTab === 'pengurus' && (
+              <StrukturPengurus
+                daftarPengurus={daftarPengurus}
+                profilRt={profilRt}
+                daftarWarga={daftarWarga}
+                onTambahPengurus={handleTambahPengurus}
+                onEditPengurus={handleEditPengurus}
+                onHapusPengurus={handleHapusPengurus}
+                currentUser={effectiveUser}
+              />
+            )}
 
-          {/* Tab 7: Mutasi & Peristiwa Kependudukan */}
-          {activeTab === 'mutasi' && (
-            <MutasiManager
-              daftarMutasi={daftarMutasi}
-              daftarWarga={daftarWarga}
-              onTambahMutasi={handleTambahMutasi}
-              onHapusMutasi={handleHapusMutasi}
-              currentUser={currentUser}
-            />
-          )}
+            {/* Tab 6: Laporan Rekapitulasi Penduduk Bulanan (Lazy Loaded) */}
+            {activeTab === 'laporan' && (
+              <Suspense fallback={<PageSuspenseFallback />}>
+                <LaporanBulanan
+                  daftarWarga={daftarWarga}
+                  daftarMutasi={daftarMutasi}
+                  profilRt={profilRt}
+                />
+              </Suspense>
+            )}
 
-          {/* Tab 8: Matriks Hak Akses Peran & Manajemen Pengguna (Developer & Pengurus) */}
-          {activeTab === 'pengguna' && (
-            <MatriksPeranPengguna
-              credentials={credentials}
-              onTambahCredential={handleTambahCredential}
-              onEditCredential={handleEditCredential}
-              onHapusCredential={handleHapusCredential}
-              currentUser={currentUser}
-              profilRt={profilRt}
-              isSupabaseConnected={isSupabaseConnected}
-              totalWarga={daftarWarga.length}
-              totalKk={daftarKk.length}
-              totalKas={daftarKas.length}
-            />
-          )}
-        </main>
+            {/* Tab 7: Mutasi & Peristiwa Kependudukan */}
+            {activeTab === 'mutasi' && (
+              <MutasiManager
+                daftarMutasi={daftarMutasi}
+                daftarWarga={daftarWarga}
+                onTambahMutasi={handleTambahMutasi}
+                onHapusMutasi={handleHapusMutasi}
+                currentUser={effectiveUser}
+              />
+            )}
+
+            {/* Tab 8: Matriks Hak Akses Peran & Manajemen Pengguna (Lazy Loaded) */}
+            {activeTab === 'pengguna' && (
+              <Suspense fallback={<PageSuspenseFallback />}>
+                <MatriksPeranPengguna
+                  credentials={credentials}
+                  onTambahCredential={handleTambahCredential}
+                  onEditCredential={handleEditCredential}
+                  onHapusCredential={handleHapusCredential}
+                  currentUser={effectiveUser}
+                  profilRt={profilRt}
+                  isSupabaseConnected={isSupabaseConnected}
+                  totalWarga={daftarWarga.length}
+                  totalKk={daftarKk.length}
+                  totalKas={daftarKas.length}
+                />
+              </Suspense>
+            )}
+          </main>
+        </div>
       </div>
 
       {/* Modals */}
@@ -603,7 +690,7 @@ export default function App() {
         daftarKk={daftarKk}
         onEdit={handleEditWarga}
         onPilihKk={handlePilihKkFromWarga}
-        currentUser={currentUser}
+        currentUser={effectiveUser}
       />
 
       <CetakKartuKeluargaModal
@@ -673,15 +760,49 @@ export default function App() {
         onRefreshConnection={refreshSupabaseConnection}
       />
 
-      {/* Asisten Cerdas RT (Google Gemini AI) */}
-      <AsistenAiModal
-        isOpen={isAiModalOpen}
-        onClose={() => setIsAiModalOpen(false)}
-        profilRt={profilRt}
-        totalWarga={daftarWarga.length}
-        totalKk={daftarKk.length}
-        saldoKas={daftarKas.reduce((acc, k) => acc + (k.jenis === 'PEMASUKAN' ? k.nominal : -k.nominal), 0)}
-      />
+      {/* Asisten Cerdas RT (Google Gemini AI - Lazy Loaded) */}
+      {isAiModalOpen && (
+        <Suspense fallback={null}>
+          <AsistenAiModal
+            isOpen={isAiModalOpen}
+            onClose={() => setIsAiModalOpen(false)}
+            profilRt={profilRt}
+            totalWarga={daftarWarga.length}
+            totalKk={daftarKk.length}
+            saldoKas={daftarKas.reduce((acc, k) => acc + (k.jenis === 'PEMASUKAN' ? k.nominal : -k.nominal), 0)}
+          />
+        </Suspense>
+      )}
+
+      {/* Developer Tools Modal (Exclusively for developer role - Lazy Loaded) */}
+      {isDevToolsOpen && (
+        <Suspense fallback={null}>
+          <DeveloperToolsModal
+            isOpen={isDevToolsOpen}
+            onClose={() => setIsDevToolsOpen(false)}
+            isOnline={isOnline}
+            isSupabaseConnected={isSupabaseConnected}
+            isTablesMissing={isSupabaseTablesMissing}
+            onForceResync={refreshSupabaseConnection}
+            simulatedRole={simulatedRole}
+            onSetSimulatedRole={setSimulatedRole}
+            daftarWarga={daftarWarga}
+            setDaftarWarga={setDaftarWarga}
+            daftarMutasi={daftarMutasi}
+            setDaftarMutasi={setDaftarMutasi}
+            daftarKas={daftarKas}
+            setDaftarKas={setDaftarKas}
+            daftarDokumen={daftarDokumen}
+            setDaftarDokumen={setDaftarDokumen}
+            daftarPengurus={daftarPengurus}
+            setDaftarPengurus={setDaftarPengurus}
+            credentials={credentials}
+            setCredentials={setCredentials}
+            profilRt={profilRt}
+            setProfilRt={handleSaveProfil}
+          />
+        </Suspense>
+      )}
 
       {/* Floating AI Assistant Trigger Button (Desktop & Tablet only) */}
       <button
@@ -703,7 +824,7 @@ export default function App() {
         onOpenAddWarga={handleOpenAddWarga}
         onOpenAiModal={() => setIsAiModalOpen(true)}
         onOpenMenuSheet={() => setIsMobileMenuSheetOpen(true)}
-        currentUser={currentUser}
+        currentUser={effectiveUser}
         profilRt={profilRt}
       />
 
@@ -714,7 +835,7 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         profilRt={profilRt}
-        currentUser={currentUser}
+        currentUser={effectiveUser}
         onLogout={handleLogout}
         onOpenLogin={() => setIsLoginModalOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}

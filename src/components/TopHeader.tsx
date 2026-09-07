@@ -13,6 +13,7 @@ import {
   Smartphone,
   Globe,
   Database,
+  Terminal,
 } from 'lucide-react';
 import { ProfilRt, UserSession } from '../types';
 import { TabId } from './Sidebar';
@@ -34,6 +35,8 @@ interface TopHeaderProps {
   tablesMissing?: boolean;
   onOpenSupabaseModal?: () => void;
   onOpenAiModal?: () => void;
+  onOpenDevTools?: () => void;
+  isDeveloperUser?: boolean;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -53,6 +56,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   tablesMissing = false,
   onOpenSupabaseModal,
   onOpenAiModal,
+  onOpenDevTools,
+  isDeveloperUser = false,
 }) => {
   const theme = profilRt.themeConfig || {
     preset: 'batik-soga',
@@ -88,74 +93,83 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     year: 'numeric',
   }).format(new Date());
 
-  const isAdminOrPengurus = currentUser?.role === 'admin' || currentUser?.role === 'pengurus';
+  const isAdminOrPengurus =
+    currentUser?.role &&
+    (currentUser.role === 'admin' ||
+      currentUser.role === 'pengurus' ||
+      currentUser.role === 'developer' ||
+      currentUser.role === 'ketua_rt' ||
+      currentUser.role === 'sekretaris' ||
+      currentUser.role === 'bendahara');
+
+  const showDevButton = Boolean(
+    onOpenDevTools && (isDeveloperUser || currentUser?.role === 'developer')
+  );
 
   return (
-    <header className="h-16 bg-[#fffcf7] border-b border-stone-200/90 flex items-center justify-between px-3 sm:px-6 shrink-0 sticky top-0 z-20 no-print shadow-xs">
-      {/* Left: Mobile Menu & Current Context */}
-      <div className="flex items-center gap-3 min-w-0">
-        <button
-          onClick={onToggleMobileMenu}
-          className="md:hidden p-2 text-stone-700 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-colors"
-          title="Buka Menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+    <header
+      style={{ backgroundColor: theme.warnaHeader }}
+      className="text-white px-3 sm:px-6 py-2.5 sm:py-3 shadow-md flex items-center justify-between gap-2 shrink-0 border-b border-amber-900/40 no-print"
+    >
+      {/* Kiri: Judul Halaman Aktif & Hamburger Mobile */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {onToggleMobileMenu && (
+          <button
+            onClick={onToggleMobileMenu}
+            className="md:hidden p-1.5 -ml-1 text-amber-200 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+            title="Buka Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
 
         <div className="min-w-0">
-          <h2 className="text-sm sm:text-base font-bold font-serif text-stone-900 leading-tight truncate flex items-center gap-2">
-            <span>{getTabTitle()}</span>
-            <span
-              className="hidden lg:inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: theme.warnaUtama }}
-            />
-          </h2>
-          <p className="text-xs text-stone-500 hidden sm:block truncate">
-            RT {profilRt.nomorRt} / RW {profilRt.nomorRw} • Kel. {profilRt.desaKelurahan}, Kec. {profilRt.kecamatan}
+          <div className="flex items-center gap-2">
+            <h1 className="text-sm sm:text-base md:text-lg font-bold truncate leading-tight tracking-tight text-white drop-shadow-2xs">
+              {getTabTitle()}
+            </h1>
+            <span className="hidden lg:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">
+              RT 02 / RW 04
+            </span>
+          </div>
+          <p className="text-[10px] sm:text-xs text-amber-200/80 truncate">
+            {profilRt.namaRt} &bull; Periode {currentDate}
           </p>
         </div>
       </div>
 
-      {/* Right: Quick Action Buttons & Authentication Pill */}
-      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-        {/* Print quick button */}
-        {activeTab !== 'laporan' && onOpenCetakLaporan && (
+      {/* Kanan: Aksi Cepat & Profil User */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Supabase Realtime Status Pill Button */}
+        {onOpenSupabaseModal && (
           <button
-            onClick={onOpenCetakLaporan}
-            className="hidden md:inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 bg-white border border-stone-300 rounded-lg shadow-2xs hover:bg-stone-50 transition-colors text-stone-700"
+            id="btn-top-supabase-status"
+            onClick={onOpenSupabaseModal}
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs cursor-pointer border active:scale-95 ${
+              isSupabaseConnected
+                ? tablesMissing
+                  ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                  : 'bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100'
+                : 'bg-rose-50 text-rose-900 border-rose-300 hover:bg-rose-100'
+            }`}
+            title="Cek Status Database Cloud Supabase"
           >
-            <Printer className="w-3.5 h-3.5 text-amber-700" />
-            <span>Cetak Rekap</span>
-          </button>
-        )}
-
-        {/* Change Theme & Logo (for Admin / Pengurus) */}
-        {isAdminOrPengurus && onOpenThemeModal && (
-          <button
-            onClick={onOpenThemeModal}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-lg border transition-all shadow-2xs"
-            style={{
-              backgroundColor: `${theme.warnaUtama}15`,
-              borderColor: `${theme.warnaUtama}50`,
-              color: '#78350f',
-            }}
-            title="Kustomisasi Logo dan Palet Warna Batik RT"
-          >
-            <Palette className="w-3.5 h-3.5 text-amber-700" />
-            <span className="hidden sm:inline">Ubah Tema & Logo</span>
-          </button>
-        )}
-
-        {/* Buka di HP Android / APK Button */}
-        {onOpenAndroidApk && (
-          <button
-            id="btn-top-android-apk"
-            onClick={onOpenAndroidApk}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100/90 text-emerald-900 border border-emerald-300 transition-all shadow-2xs cursor-pointer active:scale-95"
-            title="Pasang di HP Android / Dapatkan Berkas APK"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-            <span>Pasang di HP (APK)</span>
+            <Database
+              className={`w-3.5 h-3.5 shrink-0 ${
+                isSupabaseConnected
+                  ? tablesMissing
+                    ? 'text-amber-600 animate-pulse'
+                    : 'text-emerald-600'
+                  : 'text-rose-600'
+              }`}
+            />
+            <span className="hidden xs:inline sm:inline">
+              {isSupabaseConnected
+                ? tablesMissing
+                  ? 'Siapkan Tabel'
+                  : 'Cloud Aktif'
+                : 'Cloud Offline'}
+            </span>
           </button>
         )}
 
@@ -172,7 +186,18 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           </button>
         )}
 
-
+        {/* Developer Tools Button (Exclusive for developer) */}
+        {showDevButton && (
+          <button
+            id="btn-top-devtools"
+            onClick={onOpenDevTools}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold text-violet-950 bg-gradient-to-r from-violet-200 via-purple-200 to-indigo-200 hover:from-violet-300 hover:to-indigo-300 border border-violet-400/80 shadow-xs transition-all cursor-pointer active:scale-95"
+            title="Buka Panel Developer Tools & Diagnostik Sistem"
+          >
+            <Terminal className="w-3.5 h-3.5 text-violet-800" />
+            <span className="hidden xs:inline sm:inline">DevTools</span>
+          </button>
+        )}
 
         {/* Asisten AI RT Button (Google Gemini) */}
         {onOpenAiModal && (
