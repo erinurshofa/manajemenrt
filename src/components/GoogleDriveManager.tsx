@@ -37,6 +37,7 @@ import {
   Code2,
   Mail,
   UserCheck,
+  MessageCircle,
 } from 'lucide-react';
 import {
   DriveFile,
@@ -1005,6 +1006,39 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
         </div>
       )}
 
+      {/* Khusus Selain Developer: Pemberitahuan Bantuan Sign In & Kontak WhatsApp */}
+      {!isDev && (
+        <div className="p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-emerald-950/30 via-stone-900/60 to-emerald-950/20 border border-emerald-500/40 shadow-md text-stone-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3.5 animate-in fade-in">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0 mt-0.5">
+              <MessageCircle className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Pemberitahuan Pengurus RT
+                </span>
+                <span className="text-xs text-stone-400">Akses Google Drive RT</span>
+              </div>
+              <p className="text-xs sm:text-sm text-stone-200 leading-relaxed">
+                Jika proses sign in Google Drive pengurus gagal (misal muncul keterangan <em>Akses Ditolak / Error 403</em>), silakan hubungi Developer via WhatsApp ke <strong>085641280960</strong> dengan menginfokan alamat email Google yang Anda gunakan agar dapat didaftarkan izin aksesnya.
+              </p>
+            </div>
+          </div>
+
+          <a
+            href="https://wa.me/6285641280960?text=Halo%20Developer%20RT%20Gasem%2C%20saya%20pengurus%20RT.%20Mohon%20bantu%20daftarkan%20email%20Google%20saya%20untuk%20akses%20Google%20Drive%20RT%3A%20"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-emerald-900/30 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shrink-0 w-full md:w-auto justify-center"
+            title="Kirim pesan WhatsApp ke Developer (085641280960)"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span>Kirim WA ke 085641280960</span>
+          </a>
+        </div>
+      )}
+
       {/* Notifications */}
       {successMessage && (
         <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center gap-2.5 shadow-2xs animate-fadeIn">
@@ -1033,41 +1067,62 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
           </div>
 
           {errorMessage.includes('403') && (
-            <div className="p-3.5 bg-white/90 rounded-xl border border-rose-200 text-xs text-stone-700 space-y-2">
-              <p className="font-bold text-rose-900 flex items-center gap-1.5">
-                <span>💡 Cara Mengatasi Error 403 (access_denied) di Google Cloud Console:</span>
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-lg">
-                  <span className="font-bold text-amber-900 text-[11px] block mb-1">
-                    Solusi 1 (Cepat untuk Akun Anda): Tambah Test User
-                  </span>
-                  <p className="text-[11px] text-stone-600 mb-2 leading-relaxed">
-                    Aplikasi masih status "Testing". Masukkan email Google Anda ke daftar pengguna penguji:
-                  </p>
-                  <ol className="list-decimal list-inside text-[11px] text-stone-600 space-y-1 pl-1">
-                    <li>Buka <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener noreferrer" className="text-amber-800 font-semibold underline inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="w-2.5 h-2.5 inline" /></a></li>
-                    <li>Pilih menu <strong>OAuth consent screen</strong></li>
-                    <li>Di bagian <strong>Test users</strong>, klik <strong>+ ADD USERS</strong></li>
-                    <li>Ketik email Google Anda lalu klik <strong>Save</strong></li>
-                  </ol>
-                </div>
+            isDev ? (
+              <div className="p-3.5 bg-white/90 rounded-xl border border-rose-200 text-xs text-stone-700 space-y-2">
+                <p className="font-bold text-rose-900 flex items-center gap-1.5">
+                  <span>💡 Cara Mengatasi Error 403 (access_denied) di Google Cloud Console:</span>
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-lg">
+                    <span className="font-bold text-amber-900 text-[11px] block mb-1">
+                      Solusi 1 (Cepat untuk Akun Anda): Tambah Test User
+                    </span>
+                    <p className="text-[11px] text-stone-600 mb-2 leading-relaxed">
+                      Aplikasi masih status "Testing". Masukkan email Google Anda ke daftar pengguna penguji:
+                    </p>
+                    <ol className="list-decimal list-inside text-[11px] text-stone-600 space-y-1 pl-1">
+                      <li>Buka <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener noreferrer" className="text-amber-800 font-semibold underline inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="w-2.5 h-2.5 inline" /></a></li>
+                      <li>Pilih menu <strong>OAuth consent screen</strong></li>
+                      <li>Di bagian <strong>Test users</strong>, klik <strong>+ ADD USERS</strong></li>
+                      <li>Ketik email Google Anda lalu klik <strong>Save</strong></li>
+                    </ol>
+                  </div>
 
-                <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg">
-                  <span className="font-bold text-blue-900 text-[11px] block mb-1">
-                    Solusi 2 (Untuk Semua Warga): Publish App
-                  </span>
-                  <p className="text-[11px] text-stone-600 mb-2 leading-relaxed">
-                    Agar akun Google siapa pun dapat terhubung tanpa batasan email:
-                  </p>
-                  <ol className="list-decimal list-inside text-[11px] text-stone-600 space-y-1 pl-1">
-                    <li>Di halaman <strong>OAuth consent screen</strong></li>
-                    <li>Klik tombol <strong>PUBLISH APP</strong></li>
-                    <li>Konfirmasi untuk mengubah status menjadi <strong>In production</strong></li>
-                  </ol>
+                  <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg">
+                    <span className="font-bold text-blue-900 text-[11px] block mb-1">
+                      Solusi 2 (Untuk Semua Warga): Publish App
+                    </span>
+                    <p className="text-[11px] text-stone-600 mb-2 leading-relaxed">
+                      Agar akun Google siapa pun dapat terhubung tanpa batasan email:
+                    </p>
+                    <ol className="list-decimal list-inside text-[11px] text-stone-600 space-y-1 pl-1">
+                      <li>Di halaman <strong>OAuth consent screen</strong></li>
+                      <li>Klik tombol <strong>PUBLISH APP</strong></li>
+                      <li>Konfirmasi untuk mengubah status menjadi <strong>In production</strong></li>
+                    </ol>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-4 bg-white/95 rounded-xl border border-rose-300 text-xs text-stone-800 space-y-3">
+                <div className="flex items-center gap-2 text-rose-900 font-bold">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Akses Google Drive Ditolak (Error 403 access_denied)</span>
+                </div>
+                <p className="text-xs text-stone-700 leading-relaxed">
+                  Akun Google yang Anda gunakan belum ditambahkan ke daftar izin akses pengurus di Google Cloud RT Gasem Raya. Silakan hubungi Developer melalui WhatsApp ke <strong>085641280960</strong> dengan menginfokan alamat email Google yang Anda gunakan agar segera didaftarkan izin aksesnya.
+                </p>
+                <a
+                  href="https://wa.me/6285641280960?text=Halo%20Developer%20RT%20Gasem%2C%20akun%20Google%20saya%20gagal%20login%20Google%20Drive%20(Error%20403).%20Mohon%20bantu%20daftarkan%20email%20saya%3A%20"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all hover:scale-105 active:scale-95 w-fit"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Kirim WhatsApp ke 085641280960</span>
+                </a>
+              </div>
+            )
           )}
         </div>
       )}
@@ -1376,6 +1431,29 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
                       </svg>
                       <span>{isLoggingIn ? 'Menghubungkan...' : 'Sign in with Google (Pengurus)'}</span>
                     </button>
+
+                    {!isDev && (
+                      <div className="mt-4 p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 text-xs text-stone-700 flex items-start gap-2.5 text-left max-w-md mx-auto">
+                        <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="font-semibold text-emerald-950">
+                            Gagal Sign In atau Muncul Error 403?
+                          </p>
+                          <p className="text-[11px] text-stone-600 leading-relaxed">
+                            Silakan hubungi WhatsApp Developer di{' '}
+                            <a
+                              href="https://wa.me/6285641280960?text=Halo%20Developer%20RT%20Gasem%2C%20saya%20pengurus%20RT.%20Mohon%20bantu%20daftarkan%20email%20Google%20saya%20untuk%20akses%20Google%20Drive%20RT%3A%20"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-bold text-emerald-700 hover:underline inline-flex items-center gap-0.5"
+                            >
+                              085641280960
+                            </a>{' '}
+                            dengan memberitahukan email Google yang Anda gunakan agar segera didaftarkan izin aksesnya.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -1515,6 +1593,29 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
               <span>{isLoggingIn ? 'Menghubungkan...' : 'Sign in with Google'}</span>
             </button>
           </div>
+
+          {!isDev && (
+            <div className="p-3.5 rounded-xl bg-emerald-50/90 border border-emerald-200 text-xs text-stone-700 flex items-start gap-2.5 text-left max-w-md mx-auto">
+              <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-emerald-950">
+                  Pemberitahuan untuk Pengurus RT:
+                </p>
+                <p className="text-[11px] text-stone-600 leading-relaxed">
+                  Jika proses sign in gagal atau muncul <em>Akses Ditolak (Error 403)</em>, silakan hubungi Developer via WhatsApp di{' '}
+                  <a
+                    href="https://wa.me/6285641280960?text=Halo%20Developer%20RT%20Gasem%2C%20saya%20pengurus%20RT.%20Mohon%20bantu%20daftarkan%20email%20Google%20saya%20untuk%20akses%20Google%20Drive%20RT%3A%20"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold text-emerald-700 hover:underline inline-flex items-center gap-0.5"
+                  >
+                    085641280960
+                  </a>{' '}
+                  dengan menginfokan alamat email Google yang Anda gunakan agar didaftarkan izin aksesnya.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="bg-stone-50 rounded-xl p-4 text-xs text-stone-500 text-left border border-stone-200/80 flex items-start gap-2.5">
             <Info className="w-4 h-4 text-stone-400 shrink-0 mt-0.5" />
