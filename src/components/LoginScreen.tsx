@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { UserSession, ProfilRt, UserCredential, UserRole } from '../types';
 import { loginWithSupabase } from '../services/supabaseAuth';
+import { INITIAL_CREDENTIALS } from '../data/initialData';
 import { LoginHeader } from './login/LoginHeader';
 import { LoginHeroBanner } from './login/LoginHeroBanner';
 import { LoginFormCard } from './login/LoginFormCard';
@@ -115,7 +116,52 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         }
       }
 
-      // 2. Cek variabel lingkungan .env opsional jika dikonfigurasi
+      // 2. Fallback Kredensial Bawaan Sistem (INITIAL_CREDENTIALS) jika IndexedDB belum tersinkron
+      const matchedInitial = INITIAL_CREDENTIALS.find(
+        c => c.nik.toLowerCase() === cleanUsername.toLowerCase() && c.password === cleanPassword
+      );
+      if (matchedInitial) {
+        const session: UserSession = {
+          nik: matchedInitial.nik,
+          nama: matchedInitial.nama,
+          role: matchedInitial.role,
+          jabatan: matchedInitial.jabatan || 'Pengurus RT 02',
+          alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}, ${profilRt.desaKelurahan || 'Gasem Raya'}`,
+          noHp: matchedInitial.noHp || profilRt.nomorKontak,
+          loginAt: new Date().toISOString(),
+        };
+        onTambahCredential?.(matchedInitial);
+        onLoginSuccess(session);
+        return;
+      }
+
+      // 3. Fallback Akses Darurat Akun Developer & Superadmin
+      if (cleanUsername.toLowerCase() === 'developer' && cleanPassword === 'developer123') {
+        const devCred: UserCredential = {
+          id: 'cred-developer',
+          nik: 'developer',
+          password: 'developer123',
+          nama: 'Developer / Superadmin RT',
+          role: 'developer',
+          jabatan: 'System Engineer & Developer',
+          noHp: profilRt.nomorKontak || '0812-0000-0001',
+          createdAt: new Date().toISOString().split('T')[0],
+        };
+        const session: UserSession = {
+          nik: devCred.nik,
+          nama: devCred.nama,
+          role: devCred.role,
+          jabatan: devCred.jabatan || 'System Engineer & Developer',
+          alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}, ${profilRt.desaKelurahan || 'Gasem Raya'}`,
+          noHp: devCred.noHp,
+          loginAt: new Date().toISOString(),
+        };
+        onTambahCredential?.(devCred);
+        onLoginSuccess(session);
+        return;
+      }
+
+      // 4. Cek variabel lingkungan .env opsional jika dikonfigurasi
       const envAdminUser = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_INITIAL_ADMIN_USER || import.meta.env?.VITE_ADMIN_USER)) || '';
       const envAdminPass = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_INITIAL_ADMIN_PASS || import.meta.env?.VITE_ADMIN_PASSWORD)) || '';
       if (envAdminUser && envAdminPass && cleanUsername.toLowerCase() === envAdminUser.toLowerCase() && cleanPassword === envAdminPass) {

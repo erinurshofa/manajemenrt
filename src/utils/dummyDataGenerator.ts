@@ -371,6 +371,16 @@ export function generateDummyPengurus(): PengurusRt[] {
   const timestamp = Date.now();
   return [
     {
+      id: `dummy-p-${timestamp}-0`,
+      nama: 'H. Bambang Sudarmono, S.E.',
+      jabatan: 'Ketua RT (Pimpinan)',
+      nik: '3374101205800001',
+      noHp: '0812-3456-7890',
+      alamat: 'Jl. Gasem Raya No. 02',
+      periode: '2024 - 2029',
+      tugasPokok: 'Memimpin dan mengkoordinasikan penyelenggaraan ketertiban lingkungan, pelayanan administrasi warga, serta musyawarah mufakat RT.',
+    },
+    {
       id: `dummy-p-${timestamp}-1`,
       nama: 'Ir. Joko Wahyudi, M.T.',
       jabatan: 'Wakil Ketua RT',

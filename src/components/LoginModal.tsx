@@ -13,6 +13,7 @@ import {
 import { UserSession, ProfilRt, UserCredential } from '../types';
 import { BatikLogo } from './BatikLogo';
 import { loginWithSupabase } from '../services/supabaseAuth';
+import { INITIAL_CREDENTIALS } from '../data/initialData';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -85,7 +86,42 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         }
       }
 
-      // 2. Cek variabel lingkungan .env opsional jika dikonfigurasi
+      // 2. Fallback Kredensial Bawaan Sistem (INITIAL_CREDENTIALS)
+      const matchedInitial = INITIAL_CREDENTIALS.find(
+        c => c.nik.toLowerCase() === cleanUsername.toLowerCase() && c.password === cleanPass
+      );
+      if (matchedInitial) {
+        const session: UserSession = {
+          nik: matchedInitial.nik,
+          nama: matchedInitial.nama,
+          role: matchedInitial.role,
+          jabatan: matchedInitial.jabatan || 'Pengurus RT 02',
+          alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}`,
+          noHp: matchedInitial.noHp || profilRt.nomorKontak,
+          loginAt: new Date().toISOString(),
+        };
+        onLoginSuccess(session);
+        onClose();
+        return;
+      }
+
+      // 3. Fallback Akses Darurat Akun Developer
+      if (cleanUsername.toLowerCase() === 'developer' && cleanPass === 'developer123') {
+        const session: UserSession = {
+          nik: 'developer',
+          nama: 'Developer / Superadmin RT',
+          role: 'developer',
+          jabatan: 'System Engineer & Developer',
+          alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}`,
+          noHp: profilRt.nomorKontak || '0812-0000-0001',
+          loginAt: new Date().toISOString(),
+        };
+        onLoginSuccess(session);
+        onClose();
+        return;
+      }
+
+      // 4. Cek variabel lingkungan .env opsional jika dikonfigurasi
       const envAdminUser = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_INITIAL_ADMIN_USER || import.meta.env?.VITE_ADMIN_USER)) || '';
       const envAdminPass = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_INITIAL_ADMIN_PASS || import.meta.env?.VITE_ADMIN_PASSWORD)) || '';
       if (envAdminUser && envAdminPass && cleanUsername.toLowerCase() === envAdminUser.toLowerCase() && cleanPass === envAdminPass) {
@@ -102,7 +138,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         return;
       }
 
-      setErrorMessage(res.error || 'Username atau kata sandi tidak cocok. Silakan periksa kembali akun Anda.');
+      setErrorMessage('Username atau kata sandi tidak cocok. Silakan periksa kembali akun Anda.');
     } catch (err: any) {
       setErrorMessage(err?.message || 'Gagal menghubungi server autentikasi.');
     } finally {

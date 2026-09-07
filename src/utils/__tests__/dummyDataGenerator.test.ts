@@ -55,6 +55,7 @@ describe('dummyDataGenerator', () => {
   it('should generate dummy pengurus with complete roles and contact info', () => {
     const pengurus = generateDummyPengurus();
     expect(pengurus.length).toBeGreaterThan(0);
+    expect(pengurus[0].jabatan.toLowerCase()).toContain('ketua rt');
     pengurus.forEach(p => {
       expect(p.id).toBeDefined();
       expect(p.nama).toBeTruthy();

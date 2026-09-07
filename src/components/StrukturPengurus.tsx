@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Users,
   UserCheck,
@@ -116,13 +116,88 @@ export const StrukturPengurus: React.FC<StrukturPengurusProps> = ({
     setModalOpen(false);
   };
 
-  // Group by leadership tier
-  const ketua = daftarPengurus.find(p => p.jabatan.toLowerCase().includes('ketua') && !p.jabatan.toLowerCase().includes('wakil'));
-  const wakil = daftarPengurus.find(p => p.jabatan.toLowerCase().includes('wakil'));
-  const sekretaris = daftarPengurus.find(p => p.jabatan.toLowerCase().includes('sekretaris'));
-  const bendahara = daftarPengurus.find(p => p.jabatan.toLowerCase().includes('bendahara'));
+  // Penentuan urutan hierarki resmi SK Pengurus RT (Ketua RT selalu paling atas)
+  const getJabatanRank = (jabatan: string): number => {
+    const j = (jabatan || '').toLowerCase().trim();
+    if (
+      j.startsWith('ketua rt') ||
+      j === 'ketua' ||
+      (j.includes('ketua') && !j.includes('wakil') && !j.includes('seksi'))
+    ) {
+      return 1; // Paling atas: Ketua RT
+    }
+    if (j.includes('wakil')) {
+      return 2; // Wakil Ketua RT
+    }
+    if (j.includes('sekretaris') || j.includes('sekre')) {
+      return 3; // Sekretaris RT
+    }
+    if (j.includes('bendahara') || j.includes('benda') || j.includes('keuangan')) {
+      return 4; // Bendahara RT
+    }
+    if (j.includes('keamanan') || j.includes('ronda') || j.includes('trantib') || j.includes('ketertiban')) {
+      return 5;
+    }
+    if (j.includes('pembangunan') || j.includes('sarpras') || j.includes('sarana')) {
+      return 6;
+    }
+    if (j.includes('sosial') || j.includes('pkk') || j.includes('pemberdayaan')) {
+      return 7;
+    }
+    if (j.includes('kerohanian') || j.includes('keagamaan')) {
+      return 8;
+    }
+    if (j.includes('pemuda') || j.includes('olahraga') || j.includes('karang taruna')) {
+      return 9;
+    }
+    if (j.includes('humas') || j.includes('komunikasi') || j.includes('informasi')) {
+      return 10;
+    }
+    return 20; // Seksi lainnya
+  };
 
-  const seksiLain = daftarPengurus.filter(p => {
+  // Pastikan daftar pengurus selalu mengedepankan Ketua RT di baris No. 1
+  const sortedPengurus = useMemo(() => {
+    let list = [...daftarPengurus];
+    const hasKetua = list.some(p => {
+      const j = (p.jabatan || '').toLowerCase();
+      return j.includes('ketua') && !j.includes('wakil') && !j.includes('seksi');
+    });
+
+    // Jika belum ada pengurus dengan jabatan Ketua RT, gunakan data dari Profil RT jika tersedia
+    if (!hasKetua && profilRt.namaKetuaRt) {
+      const fallbackKetua: PengurusRt = {
+        id: 'p-profil-ketua',
+        nama: profilRt.namaKetuaRt,
+        jabatan: `Ketua RT (Pimpinan RT ${profilRt.nomorRt || '02'})`,
+        noHp: profilRt.nomorKontak || '-',
+        alamat: `RT ${profilRt.nomorRt || '02'} / RW ${profilRt.nomorRw || '04'}, ${profilRt.desaKelurahan || 'Gasem Raya'}`,
+        periode: '2024 - 2029',
+        tugasPokok: 'Memimpin dan mengkoordinasikan penyelenggaraan ketertiban, pelayanan administrasi warga, serta program kemasyarakatan.',
+      };
+      list = [fallbackKetua, ...list];
+    }
+
+    return list.sort((a, b) => {
+      const rankA = getJabatanRank(a.jabatan);
+      const rankB = getJabatanRank(b.jabatan);
+      if (rankA !== rankB) {
+        return rankA - rankB;
+      }
+      return a.nama.localeCompare(b.nama);
+    });
+  }, [daftarPengurus, profilRt]);
+
+  // Group by leadership tier
+  const ketua = sortedPengurus.find(p => {
+    const j = (p.jabatan || '').toLowerCase();
+    return j.includes('ketua') && !j.includes('wakil') && !j.includes('seksi');
+  }) || sortedPengurus[0];
+  const wakil = sortedPengurus.find(p => p.jabatan.toLowerCase().includes('wakil'));
+  const sekretaris = sortedPengurus.find(p => p.jabatan.toLowerCase().includes('sekretaris'));
+  const bendahara = sortedPengurus.find(p => p.jabatan.toLowerCase().includes('bendahara'));
+
+  const seksiLain = sortedPengurus.filter(p => {
     const j = p.jabatan.toLowerCase();
     return !j.includes('ketua') && !j.includes('sekretaris') && !j.includes('bendahara');
   });
@@ -428,13 +503,13 @@ export const StrukturPengurus: React.FC<StrukturPengurusProps> = ({
             </tr>
           </thead>
           <tbody>
-            {daftarPengurus.map((item, idx) => (
-              <tr key={item.id}>
-                <td className="border border-slate-900 p-2 text-center">{idx + 1}</td>
+            {sortedPengurus.map((item, idx) => (
+              <tr key={item.id} className={idx === 0 ? 'bg-amber-50/50 font-semibold' : ''}>
+                <td className="border border-slate-900 p-2 text-center font-bold">{idx + 1}</td>
                 <td className="border border-slate-900 p-2 font-bold">{item.jabatan}</td>
                 <td className="border border-slate-900 p-2 font-medium">
                   <div>{item.nama}</div>
-                  {item.alamat && <div className="text-[10px] text-slate-600">{item.alamat}</div>}
+                  {item.alamat && <div className="text-[10px] text-slate-600 font-normal">{item.alamat}</div>}
                 </td>
                 <td className="border border-slate-900 p-2 text-center font-mono">{item.noHp}</td>
                 <td className="border border-slate-900 p-2 text-justify">{item.tugasPokok || '-'}</td>

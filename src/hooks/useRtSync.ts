@@ -75,7 +75,9 @@ export function useRtSync({
         if (local.daftarPengurus && local.daftarPengurus.length > 0) setDaftarPengurus(local.daftarPengurus);
         if (local.profilRt) setProfilRt(local.profilRt);
         if (local.credentials && local.credentials.length > 0) {
-          setCredentials(local.credentials);
+          const existingNiks = new Set(local.credentials.map(c => c.nik.toLowerCase()));
+          const missingDefaults = INITIAL_CREDENTIALS.filter(c => !existingNiks.has(c.nik.toLowerCase()));
+          setCredentials([...local.credentials, ...missingDefaults]);
         } else {
           setCredentials(INITIAL_CREDENTIALS);
         }
