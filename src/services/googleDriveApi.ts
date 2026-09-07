@@ -113,7 +113,8 @@ export async function uploadDriveFile(
   file: File | Blob,
   fileName: string,
   mimeType: string,
-  parentFolderId?: string
+  parentFolderId?: string,
+  onProgress?: (percent: number) => void
 ): Promise<DriveFile> {
   const headers = await getAuthHeader();
 
@@ -129,14 +130,14 @@ export async function uploadDriveFile(
   const delimiter = `\r\n--${boundary}\r\n`;
   const closeDelimiter = `\r\n--${boundary}--`;
 
-  // Read file as binary/base64 or arraybuffer
+  // Read file as binary arraybuffer
   const fileArrayBuffer = await file.arrayBuffer();
   const fileBytes = new Uint8Array(fileArrayBuffer);
 
   const metadataPart = `${delimiter}Content-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(
     metadata
   )}\r\n`;
-  const mediaPartHeader = `--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`;
+  const mediaPartHeader = `--${boundary}\r\nContent-Type: ${mimeType || 'application/octet-stream'}\r\n\r\n`;
 
   // Construct multipart body using Blob
   const multipartBlob = new Blob(
@@ -144,23 +145,72 @@ export async function uploadDriveFile(
     { type: `multipart/related; boundary=${boundary}` }
   );
 
-  const res = await fetch(
-    `${DRIVE_UPLOAD_BASE}/files?uploadType=multipart&fields=id,name,mimeType,size,webViewLink,webContentLink,modifiedTime`,
-    {
-      method: 'POST',
-      headers: {
-        ...headers,
-        'Content-Type': `multipart/related; boundary=${boundary}`,
-      },
-      body: multipartBlob,
-    }
-  );
+  const targetUrl = `${DRIVE_UPLOAD_BASE}/files?uploadType=multipart&fields=id,name,mimeType,size,webViewLink,webContentLink,modifiedTime`;
+
+  // Use XMLHttpRequest when available to get real-time upload byte progress
+  if (typeof XMLHttpRequest !== 'undefined') {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', targetUrl);
+
+      Object.entries(headers).forEach(([k, v]) => {
+        xhr.setRequestHeader(k, v);
+      });
+      xhr.setRequestHeader('Content-Type', `multipart/related; boundary=${boundary}`);
+
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
+            onProgress(percent);
+          }
+        };
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (onProgress) onProgress(100);
+            resolve(data);
+          } catch {
+            if (onProgress) onProgress(100);
+            resolve({ id: 'done', name: fileName, mimeType } as DriveFile);
+          }
+        } else {
+          try {
+            const errData = JSON.parse(xhr.responseText);
+            reject(new Error(errData?.error?.message || `Gagal mengunggah file: status ${xhr.status}`));
+          } catch {
+            reject(new Error(`Gagal mengunggah file: status ${xhr.status} ${xhr.statusText}`));
+          }
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(new Error('Koneksi terputus saat mengunggah file ke Google Drive.'));
+      };
+
+      xhr.send(multipartBlob);
+    });
+  }
+
+  // Fallback to fetch API
+  const res = await fetch(targetUrl, {
+    method: 'POST',
+    headers: {
+      ...headers,
+      'Content-Type': `multipart/related; boundary=${boundary}`,
+    },
+    body: multipartBlob,
+  });
 
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData?.error?.message || `Gagal mengunggah file: status ${res.status}`);
   }
 
+  if (onProgress) onProgress(100);
   return await res.json();
 }
 

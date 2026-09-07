@@ -63,6 +63,7 @@ import { DriveHeader } from './drive/DriveHeader';
 import { PublicFolderSettingsModal } from './drive/PublicFolderSettingsModal';
 import { NewFolderModal, DeleteConfirmationModal, MoveFileModal } from './drive/DriveModals';
 import { DriveQuickActions } from './drive/DriveQuickActions';
+import { FileUploadProgressModal, QueuedUploadFile } from './drive/FileUploadProgressModal';
 
 interface GoogleDriveManagerProps {
   profilRt: ProfilRt;
@@ -136,6 +137,14 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
   const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+
+  // Upload Progress & Queue state
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploadQueue, setUploadQueue] = useState<QueuedUploadFile[]>([]);
+  const [uploadTargetFolder, setUploadTargetFolder] = useState<{ id?: string; name: string }>({
+    id: undefined,
+    name: 'Folder Terbuka RT 02',
+  });
 
   // Destructive Confirmation Modal
   const [fileToDelete, setFileToDelete] = useState<DriveFile | null>(null);
@@ -213,7 +222,7 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
   }, [needsAuth, currentFolderId, loadFiles]);
 
   // Handle Login
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (): Promise<boolean> => {
     setIsLoggingIn(true);
     setErrorMessage(null);
     try {
@@ -227,10 +236,13 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
         });
         setSuccessMessage('Berhasil terhubung dengan akun Google!');
         setTimeout(() => setSuccessMessage(null), 4000);
+        return true;
       }
+      return false;
     } catch (err: any) {
       console.error('Login error:', err);
       setErrorMessage(err.message || 'Gagal masuk dengan akun Google.');
+      return false;
     } finally {
       setIsLoggingIn(false);
     }
@@ -302,39 +314,107 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
     }
   };
 
+  // Process Upload Queue sequentially with real-time progress tracking
+  const processUploadQueue = async (
+    queue: QueuedUploadFile[],
+    targetFolderId?: string
+  ) => {
+    setIsUploading(true);
+    setErrorMessage(null);
+
+    const updatedQueue = [...queue];
+
+    for (let i = 0; i < updatedQueue.length; i++) {
+      // If already succeeded, skip
+      if (updatedQueue[i].status === 'success') continue;
+
+      // Mark current file as uploading with initial progress
+      updatedQueue[i] = {
+        ...updatedQueue[i],
+        status: 'uploading',
+        progress: 15,
+        errorMessage: undefined,
+      };
+      setUploadQueue([...updatedQueue]);
+
+      try {
+        await uploadDriveFile(
+          updatedQueue[i].file,
+          updatedQueue[i].file.name,
+          updatedQueue[i].file.type,
+          targetFolderId,
+          (pct: number) => {
+            updatedQueue[i] = {
+              ...updatedQueue[i],
+              progress: pct,
+            };
+            setUploadQueue([...updatedQueue]);
+          }
+        );
+
+        updatedQueue[i] = {
+          ...updatedQueue[i],
+          status: 'success',
+          progress: 100,
+        };
+        setUploadQueue([...updatedQueue]);
+      } catch (err: any) {
+        console.error('Upload failed for file:', updatedQueue[i].file.name, err);
+        updatedQueue[i] = {
+          ...updatedQueue[i],
+          status: 'error',
+          errorMessage: err?.message || 'Gagal mengunggah berkas ke Google Drive.',
+        };
+        setUploadQueue([...updatedQueue]);
+      }
+    }
+
+    setIsUploading(false);
+
+    const successCount = updatedQueue.filter(f => f.status === 'success').length;
+    if (successCount > 0) {
+      setSuccessMessage(`${successCount} berkas berhasil diunggah ke Google Drive!`);
+      setTimeout(() => setSuccessMessage(null), 4000);
+      setIframeRefreshKey(prev => prev + 1);
+      loadFiles(targetFolderId || currentFolderId);
+    }
+  };
+
   // Upload Local File
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     targetFolderOverride?: string
   ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const rawFiles = e.target.files ? (Array.from(e.target.files) as File[]) : [];
+    if (rawFiles.length === 0) return;
 
-    if (needsAuth) {
-      setErrorMessage('Untuk mengunggah berkas ke Google Drive, silakan Masuk dengan Akun Google (Pengurus) terlebih dahulu.');
-      return;
-    }
+    // Reset input value so same files can be re-selected if needed
+    e.target.value = '';
 
-    const parent =
+    const parentId =
       targetFolderOverride !== undefined
         ? targetFolderOverride
         : currentFolderId && currentFolderId !== 'root'
         ? currentFolderId
         : (publicFolderId || undefined);
 
-    setIsUploading(true);
-    setErrorMessage(null);
-    try {
-      await uploadDriveFile(file, file.name, file.type, parent);
-      setSuccessMessage(`Berkas "${file.name}" berhasil diunggah ke Google Drive!`);
-      setTimeout(() => setSuccessMessage(null), 4000);
-      setIframeRefreshKey(prev => prev + 1);
-      loadFiles(parent || currentFolderId);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Gagal mengunggah berkas ke Google Drive.');
-    } finally {
-      setIsUploading(false);
-      e.target.value = '';
+    const folderName =
+      parentId === publicFolderId || !parentId
+        ? 'Folder Terbuka RT 02'
+        : folderHistory.find(f => f.id === parentId)?.name || 'Folder Google Drive';
+
+    const newQueue: QueuedUploadFile[] = rawFiles.map(f => ({
+      file: f,
+      status: 'pending',
+      progress: 0,
+    }));
+
+    setUploadQueue(newQueue);
+    setUploadTargetFolder({ id: parentId, name: folderName });
+    setIsUploadModalOpen(true);
+
+    if (!needsAuth) {
+      await processUploadQueue(newQueue, parentId);
     }
   };
 
@@ -356,38 +436,46 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
     e.stopPropagation();
     setIsDragOver(false);
 
-    if (needsAuth) {
-      setErrorMessage('Untuk mengunggah berkas melalui Drag & Drop, silakan Masuk dengan Akun Google (Pengurus) terlebih dahulu.');
-      return;
-    }
-
-    const parent =
-      targetFolderOverride !== undefined
-        ? targetFolderOverride
-        : currentFolderId && currentFolderId !== 'root'
-        ? currentFolderId
-        : (publicFolderId || undefined);
-
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFiles = Array.from(e.dataTransfer.files) as File[];
-      setIsUploading(true);
-      setErrorMessage(null);
-      try {
-        let successCount = 0;
-        for (const file of droppedFiles) {
-          await uploadDriveFile(file, file.name, file.type, parent);
-          successCount++;
-        }
-        setSuccessMessage(`Berhasil mengunggah ${successCount} berkas melalui Drag & Drop ke Google Drive!`);
-        setTimeout(() => setSuccessMessage(null), 4000);
-        setIframeRefreshKey(prev => prev + 1);
-        loadFiles(parent || currentFolderId);
-      } catch (err: any) {
-        setErrorMessage(err.message || 'Gagal mengunggah berkas via Drag & Drop.');
-      } finally {
-        setIsUploading(false);
+
+      const parentId =
+        targetFolderOverride !== undefined
+          ? targetFolderOverride
+          : currentFolderId && currentFolderId !== 'root'
+          ? currentFolderId
+          : (publicFolderId || undefined);
+
+      const folderName =
+        parentId === publicFolderId || !parentId
+          ? 'Folder Terbuka RT 02'
+          : folderHistory.find(f => f.id === parentId)?.name || 'Folder Google Drive';
+
+      const newQueue: QueuedUploadFile[] = droppedFiles.map(f => ({
+        file: f,
+        status: 'pending',
+        progress: 0,
+      }));
+
+      setUploadQueue(newQueue);
+      setUploadTargetFolder({ id: parentId, name: folderName });
+      setIsUploadModalOpen(true);
+
+      if (!needsAuth) {
+        await processUploadQueue(newQueue, parentId);
       }
     }
+  };
+
+  const handleLoginAndUploadQueue = async () => {
+    const success = await handleGoogleLogin();
+    if (success) {
+      await processUploadQueue(uploadQueue, uploadTargetFolder.id);
+    }
+  };
+
+  const handleRetryFailedUploads = async () => {
+    await processUploadQueue(uploadQueue, uploadTargetFolder.id);
   };
 
   // Copy File Handler
@@ -850,17 +938,61 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
       )}
 
       {errorMessage && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center justify-between gap-2.5 shadow-2xs">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-            <span>{errorMessage}</span>
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm shadow-2xs space-y-3">
+          <div className="flex items-start justify-between gap-2.5">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-rose-950">Terjadi Kesalahan</p>
+                <p className="text-xs sm:text-sm text-rose-800 mt-0.5 leading-relaxed">{errorMessage}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setErrorMessage(null)}
+              className="text-rose-600 hover:text-rose-800 p-1 rounded-md cursor-pointer shrink-0"
+              title="Tutup"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={() => setErrorMessage(null)}
-            className="text-rose-600 hover:text-rose-800 p-1 rounded-md"
-          >
-            <X className="w-4 h-4" />
-          </button>
+
+          {errorMessage.includes('403') && (
+            <div className="p-3.5 bg-white/90 rounded-xl border border-rose-200 text-xs text-stone-700 space-y-2">
+              <p className="font-bold text-rose-900 flex items-center gap-1.5">
+                <span>💡 Cara Mengatasi Error 403 (access_denied) di Google Cloud Console:</span>
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-lg">
+                  <span className="font-bold text-amber-900 text-[11px] block mb-1">
+                    Solusi 1 (Cepat untuk Akun Anda): Tambah Test User
+                  </span>
+                  <p className="text-[11px] text-stone-600 mb-2 leading-relaxed">
+                    Aplikasi masih status "Testing". Masukkan email Google Anda ke daftar pengguna penguji:
+                  </p>
+                  <ol className="list-decimal list-inside text-[11px] text-stone-600 space-y-1 pl-1">
+                    <li>Buka <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener noreferrer" className="text-amber-800 font-semibold underline inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="w-2.5 h-2.5 inline" /></a></li>
+                    <li>Pilih menu <strong>OAuth consent screen</strong></li>
+                    <li>Di bagian <strong>Test users</strong>, klik <strong>+ ADD USERS</strong></li>
+                    <li>Ketik email Google Anda lalu klik <strong>Save</strong></li>
+                  </ol>
+                </div>
+
+                <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg">
+                  <span className="font-bold text-blue-900 text-[11px] block mb-1">
+                    Solusi 2 (Untuk Semua Warga): Publish App
+                  </span>
+                  <p className="text-[11px] text-stone-600 mb-2 leading-relaxed">
+                    Agar akun Google siapa pun dapat terhubung tanpa batasan email:
+                  </p>
+                  <ol className="list-decimal list-inside text-[11px] text-stone-600 space-y-1 pl-1">
+                    <li>Di halaman <strong>OAuth consent screen</strong></li>
+                    <li>Klik tombol <strong>PUBLISH APP</strong></li>
+                    <li>Konfirmasi untuk mengubah status menjadi <strong>In production</strong></li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1449,6 +1581,22 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
         publicFolderId={publicFolderId}
         configuredFolderId={configuredFolderId}
         folderList={files}
+      />
+
+      {/* 5. Modal Progres & Otorisasi Unggah Berkas */}
+      <FileUploadProgressModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        filesQueue={uploadQueue}
+        targetFolderName={uploadTargetFolder.name}
+        targetFolderId={uploadTargetFolder.id || publicFolderId}
+        needsAuth={needsAuth}
+        isLoggingIn={isLoggingIn}
+        loginError={errorMessage}
+        onLoginAndUpload={handleLoginAndUploadQueue}
+        onStartUpload={() => processUploadQueue(uploadQueue, uploadTargetFolder.id)}
+        isUploading={isUploading}
+        onRetryFailed={handleRetryFailedUploads}
       />
     </div>
   );
