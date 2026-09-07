@@ -386,6 +386,11 @@ export default function App() {
     syncDokumenUpsert(doc);
   };
 
+  const handleEditDokumen = (doc: DokumenRt) => {
+    setDaftarDokumen(prev => prev.map(d => (d.id === doc.id ? doc : d)));
+    syncDokumenUpsert(doc);
+  };
+
   const handleHapusDokumen = (id: string) => {
     setDaftarDokumen(prev => prev.filter(d => d.id !== id));
     syncDokumenDelete(id);
@@ -596,6 +601,7 @@ export default function App() {
                   daftarDokumen={daftarDokumen}
                   profilRt={profilRt}
                   onTambahDokumen={handleTambahDokumen}
+                  onEditDokumen={handleEditDokumen}
                   onHapusDokumen={handleHapusDokumen}
                   onNavigateToDrive={() => setActiveTab('drive')}
                   currentUser={effectiveUser}

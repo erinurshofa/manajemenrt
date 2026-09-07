@@ -6,24 +6,26 @@ import {
   Eye,
   Trash2,
   Search,
-  Plus,
   BookOpen,
   Printer,
   X,
-  FileCheck,
   Shield,
-  FileCode,
   Paperclip,
   Cloud,
   Loader2,
+  Edit3,
+  Calendar,
+  AlertTriangle,
 } from 'lucide-react';
 import { DokumenRt, ProfilRt, UserSession } from '../types';
 import { processAndUploadAttachment } from '../utils/imageCompressor';
+import { canManageDokumen } from '../utils/permissions';
 
 interface ArsipDokumenProps {
   daftarDokumen: DokumenRt[];
   profilRt: ProfilRt;
   onTambahDokumen: (dokumen: DokumenRt) => void;
+  onEditDokumen?: (dokumen: DokumenRt) => void;
   onHapusDokumen: (id: string) => void;
   onNavigateToDrive?: () => void;
   currentUser?: UserSession | null;
@@ -33,17 +35,22 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
   daftarDokumen,
   profilRt,
   onTambahDokumen,
+  onEditDokumen,
   onHapusDokumen,
   onNavigateToDrive,
   currentUser,
 }) => {
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'pengurus';
+  // Blindspot 1 Fix: Gunakan canManageDokumen agar Ketua RT, Sekretaris, Bendahara, Developer, & Admin dapat mengelola
+  const canManage = canManageDokumen(currentUser?.role);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedKategori, setSelectedKategori] = useState<string>('SEMUA');
+  const [selectedTahun, setSelectedTahun] = useState<string>('SEMUA');
   const [modalUploadOpen, setModalUploadOpen] = useState(false);
   const [bacaDokumen, setBacaDokumen] = useState<DokumenRt | null>(null);
+  const [editingDoc, setEditingDoc] = useState<DokumenRt | null>(null);
 
-  // Form State for new Document Upload
+  // Form State for new or edited Document
   const [judul, setJudul] = useState('');
   const [kategori, setKategori] = useState<DokumenRt['kategori']>('AD/ART');
   const [nomorSurat, setNomorSurat] = useState('');
@@ -55,6 +62,53 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
   const [tipeFile, setTipeFile] = useState<'pdf' | 'doc' | 'image' | 'text'>('pdf');
   const [kontenTeks, setKontenTeks] = useState('');
   const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [isLargeFile, setIsLargeFile] = useState(false);
+
+  // Filter Tahun Terbit
+  const daftarTahun = useMemo(() => {
+    const years = new Set<string>();
+    daftarDokumen.forEach(doc => {
+      if (doc.tanggal) {
+        const y = doc.tanggal.split('-')[0];
+        if (y && y.length === 4) years.add(y);
+      }
+    });
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [daftarDokumen]);
+
+  // Open Create Modal
+  const handleOpenCreate = () => {
+    setEditingDoc(null);
+    setJudul('');
+    setKategori('AD/ART');
+    setNomorSurat('');
+    setTanggal(new Date().toISOString().split('T')[0]);
+    setDeskripsi('');
+    setNamaFile('');
+    setFileData(undefined);
+    setUkuranFile('0 KB');
+    setTipeFile('pdf');
+    setKontenTeks('');
+    setIsLargeFile(false);
+    setModalUploadOpen(true);
+  };
+
+  // Blindspot 3 Fix: Buka Modal Edit / Revisi Dokumen & AD/ART
+  const handleOpenEdit = (doc: DokumenRt) => {
+    setEditingDoc(doc);
+    setJudul(doc.judul);
+    setKategori(doc.kategori);
+    setNomorSurat(doc.nomorSurat || '');
+    setTanggal(doc.tanggal || new Date().toISOString().split('T')[0]);
+    setDeskripsi(doc.deskripsi || '');
+    setNamaFile(doc.namaFile || '');
+    setFileData(doc.fileData);
+    setUkuranFile(doc.ukuranFile || '120 KB');
+    setTipeFile(doc.tipeFile || 'pdf');
+    setKontenTeks(doc.kontenTeks || '');
+    setIsLargeFile(false);
+    setModalUploadOpen(true);
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -72,6 +126,10 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
     } else {
       setTipeFile('doc');
     }
+
+    // Blindspot 2 Fix: Peringatan jika file > 2MB
+    const fileSizeMb = file.size / (1024 * 1024);
+    setIsLargeFile(fileSizeMb > 2);
 
     setIsProcessingFile(true);
     try {
@@ -91,22 +149,53 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
     e.preventDefault();
     if (!judul.trim()) return;
 
-    const newDoc: DokumenRt = {
-      id: `dok-${Date.now()}`,
-      judul: judul.trim(),
-      kategori,
-      nomorSurat: nomorSurat.trim() || undefined,
-      tanggal,
-      deskripsi: deskripsi.trim() || `Dokumen resmi ${kategori} RT GasemRaya`,
-      namaFile: namaFile || `${judul.replace(/\s+/g, '_')}.pdf`,
-      ukuranFile: ukuranFile || '120 KB',
-      tipeFile,
-      fileData,
-      kontenTeks: kontenTeks.trim() || undefined,
-    };
+    if (editingDoc) {
+      // Update Dokumen yang Ada
+      const updatedDoc: DokumenRt = {
+        ...editingDoc,
+        judul: judul.trim(),
+        kategori,
+        nomorSurat: nomorSurat.trim() || undefined,
+        tanggal,
+        deskripsi: deskripsi.trim() || `Dokumen resmi ${kategori} RT GasemRaya`,
+        namaFile: namaFile || editingDoc.namaFile || `${judul.replace(/\s+/g, '_')}.pdf`,
+        ukuranFile: ukuranFile || editingDoc.ukuranFile || '120 KB',
+        tipeFile,
+        fileData: fileData !== undefined ? fileData : editingDoc.fileData,
+        kontenTeks: kontenTeks.trim() || undefined,
+      };
 
-    onTambahDokumen(newDoc);
+      if (onEditDokumen) {
+        onEditDokumen(updatedDoc);
+      } else {
+        onTambahDokumen(updatedDoc);
+      }
+
+      // Update pembaca jika dokumen yang sama sedang dibuka
+      if (bacaDokumen?.id === editingDoc.id) {
+        setBacaDokumen(updatedDoc);
+      }
+    } else {
+      // Tambah Dokumen Baru
+      const newDoc: DokumenRt = {
+        id: `dok-${Date.now()}`,
+        judul: judul.trim(),
+        kategori,
+        nomorSurat: nomorSurat.trim() || undefined,
+        tanggal,
+        deskripsi: deskripsi.trim() || `Dokumen resmi ${kategori} RT GasemRaya`,
+        namaFile: namaFile || `${judul.replace(/\s+/g, '_')}.pdf`,
+        ukuranFile: ukuranFile || '120 KB',
+        tipeFile,
+        fileData,
+        kontenTeks: kontenTeks.trim() || undefined,
+      };
+
+      onTambahDokumen(newDoc);
+    }
+
     setModalUploadOpen(false);
+    setEditingDoc(null);
 
     // Reset Form
     setJudul('');
@@ -115,6 +204,7 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
     setNamaFile('');
     setFileData(undefined);
     setKontenTeks('');
+    setIsLargeFile(false);
   };
 
   const filteredDokumen = useMemo(() => {
@@ -131,9 +221,14 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
         return false;
       }
 
+      // Blindspot 5 Fix: Filter Tahun Terbit
+      if (selectedTahun !== 'SEMUA' && !doc.tanggal.startsWith(selectedTahun)) {
+        return false;
+      }
+
       return true;
     });
-  }, [daftarDokumen, searchTerm, selectedKategori]);
+  }, [daftarDokumen, searchTerm, selectedKategori, selectedTahun]);
 
   const handleDownload = (doc: DokumenRt) => {
     if (doc.fileData) {
@@ -157,14 +252,14 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-stone-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
         <div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-blue-600" />
+          <h2 className="text-base sm:text-lg font-bold text-stone-900 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-amber-700" />
             <span>Arsip Dokumen RT & Berkas AD / ART</span>
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Pusat penyimpanan berkas Anggaran Dasar & Anggaran Rumah Tangga (AD/ART), surat edaran, formulir, dan peraturan resmi RT GasemRaya.
+          <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
+            Pusat penyimpanan berkas Anggaran Dasar & Anggaran Rumah Tangga (AD/ART), surat edaran, formulir, dan peraturan resmi RT Gasem Raya.
           </p>
         </div>
 
@@ -173,7 +268,7 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
             <button
               id="btn-goto-drive-from-docs"
               onClick={onNavigateToDrive}
-              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg shadow-2xs transition-colors"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-xl shadow-2xs transition-colors cursor-pointer"
               title="Buka Google Drive RT"
             >
               <Cloud className="w-4 h-4 text-amber-700" />
@@ -181,48 +276,69 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
             </button>
           )}
 
-          {isAdmin && (
+          {canManage && (
             <button
-              onClick={() => setModalUploadOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition-colors shrink-0"
+              onClick={handleOpenCreate}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold text-white bg-amber-800 hover:bg-amber-900 rounded-xl shadow-xs transition-colors cursor-pointer active:scale-95"
             >
               <Upload className="w-4 h-4" />
-              <span>Unggah Berkas / AD ART</span>
+              <span>Unggah Berkas Baru</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Filter Tabs & Search */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3 no-print">
+      {/* Filter Tabs, Tahun & Search */}
+      <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-2xs space-y-3 no-print">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Category Chips */}
           <div className="flex flex-wrap items-center gap-1.5">
-            {['SEMUA', 'AD/ART', 'Peraturan RT', 'Formulir', 'SK Pengurus', 'Laporan Keuangan', 'Lainnya'].map(kat => (
+            {['SEMUA', 'AD/ART', 'Peraturan RT', 'Surat Edaran', 'Formulir', 'SK Pengurus', 'Laporan Keuangan', 'Lainnya'].map(kat => (
               <button
                 key={kat}
                 onClick={() => setSelectedKategori(kat)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                   selectedKategori === kat
-                    ? 'bg-blue-600 text-white shadow-2xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                    ? 'bg-amber-800 text-white shadow-2xs'
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-stone-900'
                 }`}
               >
-                {kat === 'SEMUA' ? 'Semua Berkas' : kat}
+                {kat === 'SEMUA' ? 'Semua Kategori' : kat}
               </button>
             ))}
           </div>
 
-          {/* Search Bar */}
-          <div className="w-full sm:w-72 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Cari judul, nomor surat, atau kata kunci..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-slate-100 border-none rounded-md text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {/* Filter Tahun Terbit Dropdown */}
+            {daftarTahun.length > 0 && (
+              <div className="flex items-center gap-1 bg-stone-100 px-2 py-1 rounded-lg border border-stone-200 text-xs">
+                <Calendar className="w-3.5 h-3.5 text-stone-500" />
+                <select
+                  value={selectedTahun}
+                  onChange={e => setSelectedTahun(e.target.value)}
+                  className="bg-transparent text-stone-700 font-semibold focus:outline-none cursor-pointer text-xs"
+                >
+                  <option value="SEMUA">Semua Tahun</option>
+                  {daftarTahun.map(y => (
+                    <option key={y} value={y}>
+                      Tahun {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Search Bar */}
+            <div className="w-full sm:w-64 relative">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari judul, nomor surat..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-stone-100 border border-stone-200 rounded-lg text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-600"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -230,9 +346,9 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
       {/* Documents Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 no-print">
         {filteredDokumen.length === 0 ? (
-          <div className="col-span-full bg-white p-12 text-center rounded-xl border border-slate-200 text-slate-400">
-            <FileText className="w-12 h-12 mx-auto mb-2 text-slate-300" />
-            <p className="font-semibold text-slate-700">Tidak ada dokumen ditemukan</p>
+          <div className="col-span-full bg-white p-12 text-center rounded-2xl border border-stone-200 text-stone-400">
+            <FileText className="w-12 h-12 mx-auto mb-2 text-stone-300" />
+            <p className="font-semibold text-stone-700">Tidak ada dokumen ditemukan</p>
             <p className="text-xs mt-1">Coba ganti kata kunci pencarian atau unggah dokumen baru.</p>
           </div>
         ) : (
@@ -241,80 +357,92 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
             return (
               <div
                 key={doc.id}
-                className={`bg-white rounded-xl border p-5 shadow-sm transition-all hover:shadow-md flex flex-col justify-between ${
-                  isAdArt ? 'border-blue-300 ring-1 ring-blue-100' : 'border-slate-200'
+                className={`bg-white rounded-2xl border p-5 shadow-2xs transition-all hover:shadow-md flex flex-col justify-between ${
+                  isAdArt ? 'border-amber-400 ring-1 ring-amber-200/80 bg-gradient-to-b from-amber-50/20 to-white' : 'border-stone-200'
                 }`}
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span
-                        className={`text-xs font-semibold px-2.5 py-0.5 rounded ${
+                        className={`text-xs font-bold px-2.5 py-0.5 rounded-md ${
                           isAdArt
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-slate-100 text-slate-700'
+                            ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                            : 'bg-stone-100 text-stone-700 border border-stone-200'
                         }`}
                       >
                         {doc.kategori}
                       </span>
                       {doc.isProtected && (
-                        <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded flex items-center gap-1">
+                        <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-md flex items-center gap-1">
                           <Shield className="w-3 h-3" />
-                          <span>Resmi RT</span>
+                          <span>Dokumen Baku RT</span>
                         </span>
                       )}
                     </div>
-                    <span className="text-xs text-slate-400">{doc.tanggal}</span>
+                    <span className="text-xs text-stone-400 font-medium">{doc.tanggal}</span>
                   </div>
 
-                  <h3 className="text-sm font-bold text-slate-900 mt-2.5 leading-snug">
+                  <h3 className="text-sm sm:text-base font-bold text-stone-900 mt-2.5 leading-snug">
                     {doc.judul}
                   </h3>
 
                   {doc.nomorSurat && (
-                    <p className="text-xs font-mono text-slate-500 mt-1">
+                    <p className="text-xs font-mono text-stone-500 mt-1">
                       No: {doc.nomorSurat}
                     </p>
                   )}
 
-                  <p className="text-xs text-slate-600 mt-2 line-clamp-3 leading-relaxed">
+                  <p className="text-xs text-stone-600 mt-2 line-clamp-3 leading-relaxed">
                     {doc.deskripsi}
                   </p>
                 </div>
 
-                <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                <div className="mt-5 pt-3.5 border-t border-stone-100 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-1.5 text-xs text-stone-400">
                     <Paperclip className="w-3.5 h-3.5" />
-                    <span className="font-mono">{doc.ukuranFile || 'PDF'}</span>
+                    <span className="font-mono text-[11px]">{doc.ukuranFile || 'PDF / Teks'}</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => setBacaDokumen(doc)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
                       title="Baca teks dan rincian berkas"
                     >
                       <Eye className="w-3.5 h-3.5" />
-                      <span>Baca / Lihat</span>
+                      <span>Baca</span>
                     </button>
 
                     <button
                       onClick={() => handleDownload(doc)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors cursor-pointer"
                       title="Unduh berkas"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Unduh</span>
                     </button>
 
-                    {!doc.isProtected && isAdmin && (
+                    {/* Blindspot 3 Fix: Tombol Edit / Revisi untuk Role Pengurus */}
+                    {canManage && (
+                      <button
+                        onClick={() => handleOpenEdit(doc)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer"
+                        title={doc.isProtected ? 'Amandemen / Revisi Teks AD-ART' : 'Edit rincian dokumen'}
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                    )}
+
+                    {!doc.isProtected && canManage && (
                       <button
                         onClick={() => {
                           if (confirm(`Hapus berkas "${doc.judul}"?`)) {
                             onHapusDokumen(doc.id);
                           }
                         }}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                        className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                         title="Hapus berkas"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -328,47 +456,60 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
         )}
       </div>
 
-      {/* Modal Upload Berkas Baru */}
+      {/* Modal Form Upload / Edit Dokumen */}
       {modalUploadOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 no-print">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Upload className="w-5 h-5 text-blue-600" />
-                <span>Unggah Berkas / Dokumen RT</span>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 no-print">
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 w-full max-w-lg flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="px-5 py-4 border-b border-stone-200 flex items-center justify-between bg-stone-50">
+              <h3 className="text-base font-bold text-stone-900 flex items-center gap-2">
+                {editingDoc ? (
+                  <>
+                    <Edit3 className="w-5 h-5 text-amber-700" />
+                    <span>{editingDoc.isProtected ? 'Amandemen / Revisi AD/ART RT' : 'Edit Dokumen Arsip RT'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-5 h-5 text-amber-700" />
+                    <span>Unggah Berkas / Dokumen RT Baru</span>
+                  </>
+                )}
               </h3>
               <button
-                onClick={() => setModalUploadOpen(false)}
-                className="p-1.5 rounded-md text-slate-400 hover:text-slate-700"
+                onClick={() => {
+                  setModalUploadOpen(false);
+                  setEditingDoc(null);
+                }}
+                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
+                title="Tutup"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleUploadSubmit} className="p-5 sm:p-6 space-y-4">
+            <form onSubmit={handleUploadSubmit} className="p-5 sm:p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
                   Judul Dokumen <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: AD/ART Perubahan 2026 / Peraturan Siskamling"
+                  placeholder="Contoh: AD/ART Amandemen 2026 / Peraturan Siskamling"
                   value={judul}
                   onChange={e => setJudul(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-slate-100 border-none rounded-md text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-600"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
                     Kategori <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={kategori}
                     onChange={e => setKategori(e.target.value as any)}
-                    className="w-full px-3 py-2 text-sm bg-slate-100 border-none rounded-md text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-600 cursor-pointer"
                   >
                     <option value="AD/ART">AD/ART</option>
                     <option value="Peraturan RT">Peraturan RT</option>
@@ -381,20 +522,20 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
                     Tanggal Terbit
                   </label>
                   <input
                     type="date"
                     value={tanggal}
                     onChange={e => setTanggal(e.target.value)}
-                    className="w-full px-3 py-2 text-sm bg-slate-100 border-none rounded-md text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-600 cursor-pointer"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
                   Nomor Surat / SK (Opsional)
                 </label>
                 <input
@@ -402,29 +543,29 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
                   placeholder="Misal: 05/SK-RT/GR/2026"
                   value={nomorSurat}
                   onChange={e => setNomorSurat(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-slate-100 border-none rounded-md text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-600 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Deskripsi / Keterangan Berkas
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Deskripsi / Keterangan Dokumen
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Ringkasan isi dokumen atau peraturan..."
+                  placeholder="Ringkasan isi dokumen atau peraturan hasil musyawarah warga..."
                   value={deskripsi}
                   onChange={e => setDeskripsi(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-slate-100 border-none rounded-md text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-xl text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-600"
                 />
               </div>
 
               {/* File Attachment */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
                   Pilih File Berkas (PDF, DOC, Gambar, dll)
                 </label>
-                <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center hover:bg-slate-50 transition-colors">
+                <div className="border-2 border-dashed border-stone-300 rounded-xl p-4 text-center hover:bg-stone-50 transition-colors">
                   <input
                     type="file"
                     id="input-file-doc"
@@ -437,47 +578,64 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
                     className="cursor-pointer flex flex-col items-center justify-center gap-1.5"
                   >
                     {isProcessingFile ? (
-                      <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+                      <Loader2 className="w-6 h-6 text-amber-700 animate-spin" />
                     ) : (
-                      <Upload className="w-6 h-6 text-blue-600" />
+                      <Upload className="w-6 h-6 text-amber-700" />
                     )}
-                    <span className="text-xs font-semibold text-blue-700">
-                      {isProcessingFile ? 'Sedang memproses & mengompres...' : namaFile ? namaFile : 'Klik untuk pilih file dari perangkat'}
+                    <span className="text-xs font-bold text-amber-900">
+                      {isProcessingFile ? 'Sedang memproses & mengompres...' : namaFile ? namaFile : 'Klik untuk memilih berkas baru'}
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-stone-400">
                       Mendukung PDF, DOC, DOCX, PNG, JPG, TXT (Otomatis Kompres)
                     </span>
                   </label>
                 </div>
+
+                {/* Blindspot 2 Warning: Peringatan Berkas Besar */}
+                {isLargeFile && (
+                  <div className="mt-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Ukuran Berkas Lebih dari 2 MB</p>
+                      <p className="mt-0.5 text-stone-600 leading-relaxed text-[11px]">
+                        Menyimpan berkas besar secara offline dapat memperlambat browser warga. Disarankan untuk mengunggah ke menu <strong>Google Drive RT</strong>, lalu masukkan ringkasannya di kolom teks di bawah.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Text content alternative */}
+              {/* Text content (AD/ART atau teks naskah resmi) */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Atau Masukkan Teks Lengkap Dokumen / AD ART:
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Naskah Teks Lengkap Dokumen / Pasal-Pasal AD ART:
                 </label>
                 <textarea
-                  rows={3}
-                  placeholder="Salin teks pasal-pasal AD/ART atau surat di sini jika tidak menggunakan file..."
+                  rows={4}
+                  placeholder="Salin teks pasal-pasal AD/ART atau naskah peraturan di sini agar dapat dibaca langsung..."
                   value={kontenTeks}
                   onChange={e => setKontenTeks(e.target.value)}
-                  className="w-full px-3 py-2 text-xs font-mono bg-slate-100 border-none rounded-md text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs font-mono bg-stone-50 border border-stone-200 rounded-xl text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-600"
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+              <div className="pt-3 border-t border-stone-200 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setModalUploadOpen(false)}
-                  className="px-4 py-2 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-md"
+                  onClick={() => {
+                    setModalUploadOpen(false);
+                    setEditingDoc(null);
+                  }}
+                  className="px-4 py-2 text-xs sm:text-sm font-semibold text-stone-600 hover:bg-stone-100 rounded-xl cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-xs transition-colors"
+                  disabled={isProcessingFile}
+                  className="px-5 py-2 text-xs sm:text-sm font-bold text-white bg-amber-800 hover:bg-amber-900 rounded-xl shadow-xs transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
                 >
-                  Simpan Dokumen
+                  {editingDoc ? 'Simpan Perubahan' : 'Simpan Dokumen'}
                 </button>
               </div>
             </form>
@@ -485,91 +643,127 @@ export const ArsipDokumen: React.FC<ArsipDokumenProps> = ({
         </div>
       )}
 
-      {/* Modal Baca & Pratinjau Dokumen (Termasuk AD/ART Resmi) */}
+      {/* Modal Baca & Pratinjau Dokumen (Lengkap dengan Kop Surat Resmi RT saat Cetak) */}
       {bacaDokumen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 no-print">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[88vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 no-print">
+          <div className="bg-white rounded-2xl shadow-2xl border border-stone-200 max-w-3xl w-full max-h-[88vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div className="px-5 py-4 border-b border-stone-200 flex items-center justify-between bg-stone-50/90">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                  <span className="text-xs font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-md">
                     {bacaDokumen.kategori}
                   </span>
-                  <span className="text-xs text-slate-500">{bacaDokumen.tanggal}</span>
+                  <span className="text-xs text-stone-500 font-medium">{bacaDokumen.tanggal}</span>
+                  {bacaDokumen.isProtected && (
+                    <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <Shield className="w-3 h-3" />
+                      <span>Dokumen Baku RT</span>
+                    </span>
+                  )}
                 </div>
-                <h3 className="text-base font-bold text-slate-900 mt-1">
+                <h3 className="text-base sm:text-lg font-bold text-stone-900 mt-1">
                   {bacaDokumen.judul}
                 </h3>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                {canManage && (
+                  <button
+                    onClick={() => {
+                      const d = bacaDokumen;
+                      setBacaDokumen(null);
+                      handleOpenEdit(d);
+                    }}
+                    className="p-2 text-stone-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                    title="Edit / Revisi Naskah Dokumen Ini"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   onClick={() => window.print()}
-                  className="p-1.5 text-slate-600 hover:bg-slate-200 rounded transition-colors"
-                  title="Cetak dokumen ini"
+                  className="p-2 text-stone-600 hover:text-stone-900 hover:bg-stone-200 rounded-lg transition-colors cursor-pointer"
+                  title="Cetak Dokumen Resmi"
                 >
                   <Printer className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setBacaDokumen(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded transition-colors"
+                  className="p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-200 rounded-lg transition-colors cursor-pointer"
+                  title="Tutup"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Modal Content */}
+            {/* Modal Content / Printable Document Area */}
             <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {/* Blindspot 4 Fix: Kop Surat Resmi RT Gasem Raya */}
+              <div className="border-b-2 border-double border-stone-800 pb-3 mb-3 text-center">
+                <p className="text-[11px] uppercase tracking-widest font-semibold text-stone-600">
+                  Rukun Tetangga {profilRt.nomorRt || '02'} / Rukun Warga {profilRt.nomorRw || '04'}
+                </p>
+                <h2 className="text-base sm:text-lg font-black uppercase text-stone-900 tracking-wide">
+                  PENGURUS LINGKUNGAN GASEM RAYA
+                </h2>
+                <p className="text-[11px] text-stone-600">
+                  Kel. {profilRt.desaKelurahan || 'Tlogosari Wetan'}, Kec. {profilRt.kecamatan || 'Pedurungan'}, {profilRt.kotaKabupaten || 'Kota Semarang'} {profilRt.kodePos || '50196'}
+                </p>
+                <p className="text-[10px] text-stone-500">
+                  Sekretariat: {profilRt.nomorKontak || '0812-3456-7890'} | Dokumen Administrasi Resmi Lingkungan
+                </p>
+              </div>
+
               {bacaDokumen.nomorSurat && (
-                <div className="text-xs font-mono font-semibold text-slate-600 bg-slate-100 p-2.5 rounded">
-                  Nomor: {bacaDokumen.nomorSurat}
+                <div className="text-xs font-mono font-bold text-stone-700 bg-stone-100 p-2.5 rounded-lg border border-stone-200">
+                  Nomor Surat / Naskah: {bacaDokumen.nomorSurat}
                 </div>
               )}
 
-              <p className="text-xs text-slate-600 italic bg-blue-50/60 p-3 rounded border border-blue-100">
+              <p className="text-xs text-stone-700 italic bg-amber-50/70 p-3 rounded-xl border border-amber-200 leading-relaxed">
                 {bacaDokumen.deskripsi}
               </p>
 
-              {/* If full text exists (like AD/ART) */}
+              {/* Naskah Teks (AD/ART atau Peraturan RT) */}
               {bacaDokumen.kontenTeks ? (
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-800 leading-relaxed font-mono whitespace-pre-wrap">
+                <div className="p-4 bg-stone-50 rounded-xl border border-stone-200 text-xs text-stone-800 leading-relaxed font-mono whitespace-pre-wrap">
                   {bacaDokumen.kontenTeks}
                 </div>
               ) : bacaDokumen.fileData && bacaDokumen.tipeFile === 'image' ? (
-                <div className="flex justify-center p-4 bg-slate-50 rounded-lg">
+                <div className="flex justify-center p-4 bg-stone-50 rounded-xl border border-stone-200">
                   <img src={bacaDokumen.fileData} alt={bacaDokumen.judul} className="max-h-96 rounded object-contain" />
                 </div>
               ) : bacaDokumen.fileData && bacaDokumen.tipeFile === 'pdf' ? (
-                <iframe src={bacaDokumen.fileData} title={bacaDokumen.judul} className="w-full h-96 rounded border" />
+                <iframe src={bacaDokumen.fileData} title={bacaDokumen.judul} className="w-full h-96 rounded-xl border border-stone-200" />
               ) : (
-                <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-xl border border-slate-200">
-                  <FileText className="w-10 h-10 mx-auto mb-2 text-slate-400" />
-                  <p className="font-semibold text-sm">Berkas Digital: {bacaDokumen.namaFile}</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Silakan klik tombol "Unduh Berkas" di bawah untuk membuka dokumen lengkap di perangkat Anda.
+                <div className="p-8 text-center text-stone-500 bg-stone-50 rounded-xl border border-stone-200 space-y-2">
+                  <FileText className="w-10 h-10 mx-auto text-stone-400" />
+                  <p className="font-bold text-sm text-stone-800">Berkas Lampiran Digital: {bacaDokumen.namaFile}</p>
+                  <p className="text-xs text-stone-500">
+                    Klik tombol "Unduh Dokumen" di bawah untuk membuka naskah lengkap pada perangkat Anda.
                   </p>
                 </div>
               )}
             </div>
 
             {/* Modal Footer */}
-            <div className="px-5 py-3 border-t border-slate-200 flex items-center justify-between bg-slate-50">
-              <span className="text-xs text-slate-400 font-mono">
+            <div className="px-5 py-3.5 border-t border-stone-200 flex items-center justify-between bg-stone-50">
+              <span className="text-xs text-stone-500 font-mono text-[11px]">
                 Berkas: {bacaDokumen.namaFile} ({bacaDokumen.ukuranFile || 'Standar'})
               </span>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleDownload(bacaDokumen)}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-amber-800 hover:bg-amber-900 rounded-xl transition-colors cursor-pointer active:scale-95"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Unduh Dokumen</span>
                 </button>
                 <button
                   onClick={() => setBacaDokumen(null)}
-                  className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200 rounded-md"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-200 rounded-xl cursor-pointer"
                 >
                   Tutup
                 </button>
