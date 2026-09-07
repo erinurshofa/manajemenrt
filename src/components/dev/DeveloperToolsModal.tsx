@@ -48,6 +48,7 @@ import {
   INITIAL_CREDENTIALS,
   DEFAULT_PROFIL_RT,
 } from '../../data/initialData';
+import { syncCredentialUpsert } from '../../services/supabaseService';
 
 interface DeveloperToolsModalProps {
   isOpen: boolean;
@@ -225,6 +226,7 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
       setCredentials(prev => {
         const existingNiks = new Set(prev.map(c => c.nik.toLowerCase()));
         const toAdd = dummyCreds.filter(c => !existingNiks.has(c.nik.toLowerCase()));
+        toAdd.forEach(c => syncCredentialUpsert(c));
         return [...prev, ...toAdd];
       });
 
@@ -240,6 +242,7 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
       const existingNiks = new Set(prev.map(c => c.nik.toLowerCase()));
       const toAdd = dummyCreds.filter(c => !existingNiks.has(c.nik.toLowerCase()));
       count = toAdd.length;
+      toAdd.forEach(c => syncCredentialUpsert(c));
       return [...prev, ...toAdd];
     });
     showNotice(`Berhasil men-generate ${count} akun pengguna baru untuk setiap peran!`, 'success');

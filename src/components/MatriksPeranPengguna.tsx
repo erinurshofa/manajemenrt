@@ -415,6 +415,7 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
                 <option value="bendahara">Bendahara</option>
                 <option value="pengurus">Pengurus Bidang</option>
                 <option value="warga">Warga</option>
+                <option value="admin">Administrator RT</option>
               </select>
             </div>
 

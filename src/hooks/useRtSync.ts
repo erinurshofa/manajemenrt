@@ -15,6 +15,7 @@ import {
   seedInitialDataToSupabase,
   flushOfflineSyncQueue,
   subscribeToRealtimeChanges,
+  syncCredentialUpsert,
 } from '../services/supabaseService';
 import {
   loadAllLocalData,
@@ -213,7 +214,23 @@ export function useRtSync({
           }
           if (cloudData.profilRt) setProfilRt(cloudData.profilRt);
           if (cloudData.credentials && cloudData.credentials.length > 0) {
-            setCredentials(cloudData.credentials);
+            setCredentials(prev => {
+              const cloudNiks = new Set(cloudData.credentials.map(c => c.nik.toLowerCase()));
+              const localPending = prev.filter(c => !cloudNiks.has(c.nik.toLowerCase()));
+              const combined = [...cloudData.credentials, ...localPending];
+              const combinedNiks = new Set(combined.map(c => c.nik.toLowerCase()));
+              const missingDefaults = INITIAL_CREDENTIALS.filter(c => !combinedNiks.has(c.nik.toLowerCase()));
+              const result = [...combined, ...missingDefaults];
+
+              if (missingDefaults.length > 0) {
+                missingDefaults.forEach(d => syncCredentialUpsert(d));
+              }
+
+              return result;
+            });
+          } else {
+            setCredentials(INITIAL_CREDENTIALS);
+            INITIAL_CREDENTIALS.forEach(d => syncCredentialUpsert(d));
           }
         }
       }

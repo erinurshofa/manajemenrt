@@ -64,6 +64,8 @@ import {
   syncPengurusUpsert,
   syncPengurusDelete,
   syncProfilRtUpsert,
+  syncCredentialUpsert,
+  syncCredentialDelete,
 } from './services/supabaseService';
 
 import {
@@ -415,14 +417,17 @@ export default function App() {
   // Handlers Kredensial / Akun Pengguna (RBAC & Developer Management)
   const handleTambahCredential = (cred: UserCredential) => {
     setCredentials(prev => [...prev.filter(c => c.nik !== cred.nik), cred]);
+    syncCredentialUpsert(cred);
   };
 
   const handleEditCredential = (cred: UserCredential) => {
     setCredentials(prev => prev.map(c => (c.nik === cred.nik ? cred : c)));
+    syncCredentialUpsert(cred);
   };
 
   const handleHapusCredential = (nik: string) => {
     setCredentials(prev => prev.filter(c => c.nik !== nik));
+    syncCredentialDelete(nik);
   };
 
   // Reset & Import

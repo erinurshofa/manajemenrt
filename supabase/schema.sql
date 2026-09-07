@@ -136,9 +136,17 @@ CREATE TABLE IF NOT EXISTS public.user_credentials (
     created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
 );
 
--- Akun Default Administrator
+-- Akun Default Sistem untuk Seluruh Peran RBAC
 INSERT INTO public.user_credentials (nik, password, nama, role, jabatan)
-VALUES ('gasemraya02', 'adminrt02', 'GASEM RAYA RT 02', 'admin', 'Ketua RT (Admin RT 02)')
+VALUES 
+    ('developer', 'developer123', 'Developer / Superadmin RT', 'developer', 'System Engineer & Developer'),
+    ('ketuart02', 'ketua123', 'Ketua RT 02 Gasem Raya', 'ketua_rt', 'Ketua RT (Pimpinan)'),
+    ('sekretaris02', 'sekretaris123', 'Sekretariat RT 02', 'sekretaris', 'Sekretaris RT'),
+    ('bendahara02', 'bendahara123', 'Bendahara Kas RT 02', 'bendahara', 'Bendahara RT'),
+    ('pengurus02', 'pengurus123', 'Pengurus Seksi Lapangan', 'pengurus', 'Pengurus RT 02'),
+    ('warga02', 'warga123', 'Warga RT 02 Gasem Raya', 'warga', 'Penduduk / Warga'),
+    ('admin02', 'admin123', 'Administrator Operasional RT', 'admin', 'Admin Pelayanan RT'),
+    ('gasemraya02', 'adminrt02', 'GASEM RAYA RT 02', 'admin', 'Ketua RT (Admin RT 02)')
 ON CONFLICT (nik) DO NOTHING;
 
 -- ==============================================================================

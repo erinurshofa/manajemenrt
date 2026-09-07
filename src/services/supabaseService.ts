@@ -288,11 +288,14 @@ export const fetchAllFromSupabase = async (fallback: {
       daftarDokumen: dokumenRows && dokumenRows.length > 0 ? dokumenRows.map(mapDbToDokumen) : fallback.daftarDokumen,
       daftarPengurus: pengurusRows && pengurusRows.length > 0 ? pengurusRows.map(mapDbToPengurus) : fallback.daftarPengurus,
       credentials: credRows && credRows.length > 0 ? credRows.map((c: any) => ({
+        id: c.id || `cred-${c.nik}`,
         nik: c.nik,
         password: c.password,
         nama: c.nama,
         role: c.role,
         jabatan: c.jabatan,
+        noHp: c.no_hp || c.nohp || c.noHp,
+        createdAt: c.created_at || c.createdAt || new Date().toISOString().split('T')[0],
       })) : fallback.credentials,
     };
   } catch (err) {
@@ -575,6 +578,15 @@ export const syncCredentialUpsert = async (cred: UserCredential) => {
     });
   } catch (e) {
     console.error('Supabase sync error (credential upsert):', e);
+  }
+};
+
+export const syncCredentialDelete = async (nik: string) => {
+  if (!isSupabaseConfigured() || !supabase) return;
+  try {
+    await supabase.from('user_credentials').delete().eq('nik', nik);
+  } catch (e) {
+    console.error('Supabase sync error (credential delete):', e);
   }
 };
 
