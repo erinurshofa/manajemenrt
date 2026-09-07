@@ -95,6 +95,7 @@ import {
   DEFAULT_ADMIN_USER,
 } from './data/initialData';
 import { kelompokkanPerKk } from './utils/calculations';
+import { isDeveloper } from './utils/permissions';
 
 // Clean up all local data storage - Pure Supabase Cloud Mode
 if (typeof window !== 'undefined') {

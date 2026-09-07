@@ -8,7 +8,7 @@ import {
   ProfilRt,
   UserCredential,
 } from '../types';
-import { enqueueSync, getSyncQueue, popSyncQueueItem } from './offlineStorage';
+import { enqueueSync, getSyncQueue, popSyncQueueItem, removeSyncQueueItemByEntity } from './offlineStorage';
 
 // ==========================================
 // MAPPERS: TypeScript (camelCase) <-> DB (snake_case)
@@ -282,11 +282,11 @@ export const fetchAllFromSupabase = async (fallback: {
 
     return {
       profilRt: profilRows && profilRows.length > 0 ? mapDbToProfil(profilRows[0], fallback.profilRt) : fallback.profilRt,
-      daftarWarga: wargaRows && wargaRows.length > 0 ? wargaRows.map(mapDbToWarga) : fallback.daftarWarga,
-      daftarMutasi: mutasiRows && mutasiRows.length > 0 ? mutasiRows.map(mapDbToMutasi) : fallback.daftarMutasi,
-      daftarKas: kasRows && kasRows.length > 0 ? kasRows.map(mapDbToKas) : fallback.daftarKas,
-      daftarDokumen: dokumenRows && dokumenRows.length > 0 ? dokumenRows.map(mapDbToDokumen) : fallback.daftarDokumen,
-      daftarPengurus: pengurusRows && pengurusRows.length > 0 ? pengurusRows.map(mapDbToPengurus) : fallback.daftarPengurus,
+      daftarWarga: Array.isArray(wargaRows) ? wargaRows.map(mapDbToWarga) : fallback.daftarWarga,
+      daftarMutasi: Array.isArray(mutasiRows) ? mutasiRows.map(mapDbToMutasi) : fallback.daftarMutasi,
+      daftarKas: Array.isArray(kasRows) ? kasRows.map(mapDbToKas) : fallback.daftarKas,
+      daftarDokumen: Array.isArray(dokumenRows) ? dokumenRows.map(mapDbToDokumen) : fallback.daftarDokumen,
+      daftarPengurus: Array.isArray(pengurusRows) ? pengurusRows.map(mapDbToPengurus) : fallback.daftarPengurus,
       credentials: credRows && credRows.length > 0 ? credRows.map((c: any) => ({
         id: c.id || `cred-${c.nik}`,
         nik: c.nik,
@@ -319,36 +319,36 @@ export const seedInitialDataToSupabase = async (data: {
   if (!isSupabaseConfigured() || !supabase) return false;
 
   try {
-    // Check if warga is empty
-    const { count, error: countErr } = await supabase.from('warga').select('*', { count: 'exact', head: true });
+    // Check if system is completely fresh by checking profil_rt (NOT warga)
+    const { count, error: countErr } = await supabase.from('profil_rt').select('*', { count: 'exact', head: true });
     if (countErr) throw countErr;
 
     if (count === 0) {
       console.log('Seeding initial data to Supabase...');
       // 1. Profil
       await supabase.from('profil_rt').upsert(mapProfilToDb(data.profilRt));
-      // 2. Warga
-      if (data.daftarWarga.length > 0) {
+      // 2. Warga (hanya jika data awal memang ada)
+      if (data.daftarWarga && data.daftarWarga.length > 0) {
         await supabase.from('warga').upsert(data.daftarWarga.map(mapWargaToDb));
       }
       // 3. Mutasi
-      if (data.daftarMutasi.length > 0) {
+      if (data.daftarMutasi && data.daftarMutasi.length > 0) {
         await supabase.from('mutasi').upsert(data.daftarMutasi.map(mapMutasiToDb));
       }
       // 4. Kas
-      if (data.daftarKas.length > 0) {
+      if (data.daftarKas && data.daftarKas.length > 0) {
         await supabase.from('transaksi_kas').upsert(data.daftarKas.map(mapKasToDb));
       }
       // 5. Dokumen
-      if (data.daftarDokumen.length > 0) {
+      if (data.daftarDokumen && data.daftarDokumen.length > 0) {
         await supabase.from('dokumen_rt').upsert(data.daftarDokumen.map(mapDokumenToDb));
       }
       // 6. Pengurus
-      if (data.daftarPengurus.length > 0) {
+      if (data.daftarPengurus && data.daftarPengurus.length > 0) {
         await supabase.from('pengurus_rt').upsert(data.daftarPengurus.map(mapPengurusToDb));
       }
       // 7. Credentials
-      if (data.credentials.length > 0) {
+      if (data.credentials && data.credentials.length > 0) {
         await supabase.from('user_credentials').upsert(
           data.credentials.map((c) => ({
             nik: c.nik,
@@ -392,6 +392,7 @@ export const syncWargaUpsert = async (warga: Warga) => {
 };
 
 export const syncWargaDelete = async (id: string) => {
+  await removeSyncQueueItemByEntity('warga', id);
   if (!isSupabaseConfigured() || !supabase) {
     await enqueueSync('warga', 'DELETE', { id });
     return;
@@ -427,6 +428,7 @@ export const syncMutasiUpsert = async (mutasi: MutasiRecord) => {
 };
 
 export const syncMutasiDelete = async (id: string) => {
+  await removeSyncQueueItemByEntity('mutasi', id);
   if (!isSupabaseConfigured() || !supabase) {
     await enqueueSync('mutasi', 'DELETE', { id });
     return;
@@ -462,6 +464,7 @@ export const syncKasUpsert = async (kas: TransaksiKas) => {
 };
 
 export const syncKasDelete = async (id: string) => {
+  await removeSyncQueueItemByEntity('transaksi_kas', id);
   if (!isSupabaseConfigured() || !supabase) {
     await enqueueSync('transaksi_kas', 'DELETE', { id });
     return;
@@ -497,6 +500,7 @@ export const syncDokumenUpsert = async (dok: DokumenRt) => {
 };
 
 export const syncDokumenDelete = async (id: string) => {
+  await removeSyncQueueItemByEntity('dokumen_rt', id);
   if (!isSupabaseConfigured() || !supabase) {
     await enqueueSync('dokumen_rt', 'DELETE', { id });
     return;
@@ -532,6 +536,7 @@ export const syncPengurusUpsert = async (p: PengurusRt) => {
 };
 
 export const syncPengurusDelete = async (id: string) => {
+  await removeSyncQueueItemByEntity('pengurus_rt', id);
   if (!isSupabaseConfigured() || !supabase) {
     await enqueueSync('pengurus_rt', 'DELETE', { id });
     return;
@@ -582,6 +587,7 @@ export const syncCredentialUpsert = async (cred: UserCredential) => {
 };
 
 export const syncCredentialDelete = async (nik: string) => {
+  await removeSyncQueueItemByEntity('user_credentials', nik);
   if (!isSupabaseConfigured() || !supabase) return;
   try {
     await supabase.from('user_credentials').delete().eq('nik', nik);

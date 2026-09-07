@@ -177,40 +177,20 @@ export function useRtSync({
         });
 
         if (cloudData) {
-          if (cloudData.daftarWarga && cloudData.daftarWarga.length > 0) {
-            setDaftarWarga(prev => {
-              const cloudIds = new Set(cloudData.daftarWarga.map(w => w.id));
-              const localPending = prev.filter(w => !cloudIds.has(w.id));
-              return [...cloudData.daftarWarga, ...localPending];
-            });
+          if (Array.isArray(cloudData.daftarWarga)) {
+            setDaftarWarga(cloudData.daftarWarga);
           }
-          if (cloudData.daftarMutasi && cloudData.daftarMutasi.length > 0) {
-            setDaftarMutasi(prev => {
-              const cloudIds = new Set(cloudData.daftarMutasi.map(m => m.id));
-              const localPending = prev.filter(m => !cloudIds.has(m.id));
-              return [...cloudData.daftarMutasi, ...localPending];
-            });
+          if (Array.isArray(cloudData.daftarMutasi)) {
+            setDaftarMutasi(cloudData.daftarMutasi);
           }
-          if (cloudData.daftarKas && cloudData.daftarKas.length > 0) {
-            setDaftarKas(prev => {
-              const cloudIds = new Set(cloudData.daftarKas.map(k => k.id));
-              const localPending = prev.filter(k => !cloudIds.has(k.id));
-              return [...cloudData.daftarKas, ...localPending];
-            });
+          if (Array.isArray(cloudData.daftarKas)) {
+            setDaftarKas(cloudData.daftarKas);
           }
-          if (cloudData.daftarDokumen && cloudData.daftarDokumen.length > 0) {
-            setDaftarDokumen(prev => {
-              const cloudIds = new Set(cloudData.daftarDokumen.map(d => d.id));
-              const localPending = prev.filter(d => !cloudIds.has(d.id));
-              return [...cloudData.daftarDokumen, ...localPending];
-            });
+          if (Array.isArray(cloudData.daftarDokumen)) {
+            setDaftarDokumen(cloudData.daftarDokumen);
           }
-          if (cloudData.daftarPengurus && cloudData.daftarPengurus.length > 0) {
-            setDaftarPengurus(prev => {
-              const cloudIds = new Set(cloudData.daftarPengurus.map(p => p.id));
-              const localPending = prev.filter(p => !cloudIds.has(p.id));
-              return [...cloudData.daftarPengurus, ...localPending];
-            });
+          if (Array.isArray(cloudData.daftarPengurus)) {
+            setDaftarPengurus(cloudData.daftarPengurus);
           }
           if (cloudData.profilRt) setProfilRt(cloudData.profilRt);
           if (cloudData.credentials && cloudData.credentials.length > 0) {

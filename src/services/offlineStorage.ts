@@ -254,3 +254,22 @@ export async function clearSyncQueue(): Promise<void> {
   }
 }
 
+/**
+ * Hapus seluruh antrean sinkronisasi untuk suatu entitas tertentu (misal saat data dihapus)
+ */
+export async function removeSyncQueueItemByEntity(table: string, entityId: string): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction('sync_queue', 'readwrite');
+    const store = tx.objectStore('sync_queue');
+    const all = await loadCollectionFromIndexedDb<SyncQueueItem>('sync_queue');
+    for (const item of all) {
+      if (item.table === table && (item.payload?.id === entityId || item.payload?.nik === entityId)) {
+        store.delete(item.id);
+      }
+    }
+  } catch (err) {
+    console.warn('Gagal menghapus antrean sinkronisasi entitas:', err);
+  }
+}
+
