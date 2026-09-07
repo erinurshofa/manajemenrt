@@ -34,6 +34,9 @@ import {
   FolderInput,
   Eye,
   Sparkles,
+  Code2,
+  Mail,
+  UserCheck,
 } from 'lucide-react';
 import {
   DriveFile,
@@ -58,7 +61,8 @@ import {
   getCurrentGoogleUser,
   getAccessToken,
 } from '../services/googleDriveAuth';
-import { ProfilRt, Warga, MutasiRecord, TransaksiKas, DokumenRt, KartuKeluargaData } from '../types';
+import { ProfilRt, Warga, MutasiRecord, TransaksiKas, DokumenRt, KartuKeluargaData, UserSession } from '../types';
+import { isDeveloper } from '../utils/permissions';
 import { DriveHeader } from './drive/DriveHeader';
 import { PublicFolderSettingsModal } from './drive/PublicFolderSettingsModal';
 import { NewFolderModal, DeleteConfirmationModal, MoveFileModal } from './drive/DriveModals';
@@ -72,6 +76,7 @@ interface GoogleDriveManagerProps {
   daftarKas: TransaksiKas[];
   daftarMutasi: MutasiRecord[];
   daftarDokumen: DokumenRt[];
+  currentUser?: UserSession | null;
 }
 
 export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
@@ -81,7 +86,9 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
   daftarKas,
   daftarMutasi,
   daftarDokumen,
+  currentUser,
 }) => {
+  const isDev = isDeveloper(currentUser?.role);
   // Drive configuration from .env / localStorage
   const configuredFolderId = getCustomFolderId();
   const configuredServiceEmail = getServiceAccountEmail();
@@ -928,6 +935,75 @@ export const GoogleDriveManager: React.FC<GoogleDriveManagerProps> = ({
         googleUser={googleUser}
         onLogout={handleGoogleLogout}
       />
+
+      {/* Khusus Akun Developer: Pengingat Akun Email Google Cloud & Link Tambah User Pengurus */}
+      {isDev && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-stone-900 via-stone-850 to-stone-900 border-2 border-amber-500/40 shadow-xl text-stone-100 space-y-3.5 animate-in fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/20 to-rose-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+                <Code2 className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                    Khusus Developer
+                  </span>
+                  <span className="text-xs text-stone-400">Google Cloud Console OAuth & Audience</span>
+                </div>
+                <h4 className="text-sm sm:text-base font-bold text-white mt-0.5">
+                  Konfigurasi Email Pengguna Google Drive RT
+                </h4>
+              </div>
+            </div>
+
+            <a
+              href="https://console.cloud.google.com/auth/audience"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white text-xs font-bold shadow-lg shadow-amber-900/30 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer w-fit shrink-0"
+              title="Buka Google Cloud Console di bagian Audience / Test Users"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Buka Google Cloud Console (Test Users)</span>
+            </a>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs text-stone-300">
+            <div className="p-3.5 rounded-xl bg-stone-950/70 border border-stone-800/80 space-y-2">
+              <div className="flex items-center gap-2 text-rose-400 font-bold">
+                <Mail className="w-4 h-4 text-rose-400" />
+                <span>Akun Email Developer Proyek:</span>
+              </div>
+              <p className="leading-relaxed text-stone-300">
+                Integrasi Google Drive aplikasi ini dikembangkan & terdaftar di Google Cloud Console dengan akun:
+              </p>
+              <div className="p-2.5 rounded-lg bg-stone-900 border border-amber-500/30 font-mono font-bold text-amber-300 select-all text-center text-xs tracking-wide">
+                jasawebdevelopersemarang@gmail.com
+              </div>
+              <p className="text-[11px] text-stone-400 leading-normal">
+                💡 Selalu pastikan Anda login ke Google Cloud Console menggunakan email developer di atas untuk mengelola kredensial dan izin akses.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-stone-950/70 border border-stone-800/80 space-y-2">
+              <div className="flex items-center gap-2 text-amber-400 font-bold">
+                <UserCheck className="w-4 h-4 text-amber-400" />
+                <span>Cara Menambah Email Pengurus (Bebas Error 403):</span>
+              </div>
+              <p className="leading-relaxed text-stone-300">
+                Agar akun Google pengurus (Ketua RT, Sekretaris, Bendahara) dapat login Google Drive tanpa hambatan Error 403:
+              </p>
+              <ol className="list-decimal list-inside space-y-1 text-stone-300 text-[11px] pl-1 leading-relaxed">
+                <li>Buka link Google Cloud Console melalui tombol di atas.</li>
+                <li>Pilih menu <strong>Audience</strong> / <strong>OAuth consent screen</strong> &gt; <strong>Test users</strong>.</li>
+                <li>Klik tombol <strong>+ ADD USERS</strong>, lalu ketik email Google pengurus yang ingin diizinkan.</li>
+                <li>Klik <strong>Save</strong>. Pengurus RT kini dapat langsung login dan menyinkronkan data Google Drive.</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notifications */}
       {successMessage && (

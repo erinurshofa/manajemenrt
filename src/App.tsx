@@ -738,6 +738,7 @@ export default function App() {
                   daftarKas={daftarKas}
                   daftarMutasi={daftarMutasi}
                   daftarDokumen={daftarDokumen}
+                  currentUser={effectiveUser}
                 />
               </Suspense>
             )}
