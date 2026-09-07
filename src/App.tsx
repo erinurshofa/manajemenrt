@@ -541,10 +541,10 @@ export default function App() {
             onOpenShareOnline={() => setIsShareOnlineModalOpen(true)}
             isSupabaseConnected={isSupabaseConnected}
             tablesMissing={isSupabaseTablesMissing}
-            onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+            onOpenSupabaseModal={isDeveloper(effectiveUser?.role) ? () => setIsSupabaseModalOpen(true) : undefined}
             onOpenAiModal={() => setIsAiModalOpen(true)}
             onOpenDevTools={() => setIsDevToolsOpen(true)}
-            isDeveloperUser={isRealDeveloper}
+            isDeveloperUser={isDeveloper(effectiveUser?.role)}
           />
 
           {/* Scrollable Main Content */}
@@ -761,15 +761,17 @@ export default function App() {
         profilRt={profilRt}
       />
 
-      {/* Supabase Cloud Database Status & Configuration Modal */}
-      <SupabaseConfigModal
-        isOpen={isSupabaseModalOpen}
-        onClose={() => setIsSupabaseModalOpen(false)}
-        isConnected={isSupabaseConnected}
-        tablesMissing={isSupabaseTablesMissing}
-        errorMessage={supabaseErrorMessage}
-        onRefreshConnection={refreshSupabaseConnection}
-      />
+      {/* Supabase Cloud Database Status & Configuration Modal (Hanya Developer) */}
+      {isDeveloper(effectiveUser?.role) && (
+        <SupabaseConfigModal
+          isOpen={isSupabaseModalOpen}
+          onClose={() => setIsSupabaseModalOpen(false)}
+          isConnected={isSupabaseConnected}
+          tablesMissing={isSupabaseTablesMissing}
+          errorMessage={supabaseErrorMessage}
+          onRefreshConnection={refreshSupabaseConnection}
+        />
+      )}
 
       {/* Asisten Cerdas RT (Google Gemini AI - Lazy Loaded) */}
       {isAiModalOpen && (

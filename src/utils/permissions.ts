@@ -212,7 +212,7 @@ export const PERMISSION_MATRIX_DATA: MatrixRow[] = [
   {
     modul: 'Developer Tools & Database Audit',
     kategori: 'Sistem',
-    deskripsi: 'Diagnostik cloud Supabase, kuota IndexedDB, dan reset/seed data',
+    deskripsi: 'Diagnostik sistem, kuota penyimpanan lokal, dan reset/seed data',
     developer: 'Full Akses',
     ketua_rt: '-',
     sekretaris: '-',

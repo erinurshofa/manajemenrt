@@ -140,8 +140,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
       {/* Kanan: Aksi Cepat & Profil User */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        {/* Supabase Realtime Status Pill Button */}
-        {onOpenSupabaseModal && (
+        {/* Supabase Realtime Status Pill Button (Hanya tampil untuk Developer) */}
+        {(isDeveloperUser || currentUser?.role === 'developer') && onOpenSupabaseModal && (
           <button
             id="btn-top-supabase-status"
             onClick={onOpenSupabaseModal}
