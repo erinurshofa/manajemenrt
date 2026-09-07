@@ -81,9 +81,15 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
   const isUserDev = isDeveloper(currentUser?.role);
   const isLeader = isAdminOrLeader(currentUser?.role);
 
+  // Akun yang dapat dilihat pengguna (Selain developer tidak bisa melihat akun developer)
+  const visibleCredentials = useMemo(() => {
+    if (isUserDev) return credentials;
+    return credentials.filter(c => c.role !== 'developer');
+  }, [credentials, isUserDev]);
+
   // Filter daftar akun
   const filteredCredentials = useMemo(() => {
-    return credentials.filter(c => {
+    return visibleCredentials.filter(c => {
       const q = searchQuery.toLowerCase().trim();
       const matchSearch =
         !q ||
@@ -94,7 +100,7 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
       const matchRole = filterRole === 'all' || c.role === filterRole;
       return matchSearch && matchRole;
     });
-  }, [credentials, searchQuery, filterRole]);
+  }, [visibleCredentials, searchQuery, filterRole]);
 
   // Buka Modal Tambah
   const handleOpenAdd = () => {
@@ -105,6 +111,7 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
     setFormRole('warga');
     setFormJabatan('');
     setFormNoHp('');
+    setFormShowPassword(false);
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -113,7 +120,9 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
   const handleGenerateAllRoles = async () => {
     const setuju = await confirmDialog({
       title: 'Generate Otomatis Akun Peran',
-      message: 'Generate otomatis akun pengguna untuk seluruh 7 peran (Developer, Ketua RT, Sekretaris, Bendahara, Pengurus, Warga, dan Admin)?',
+      message: isUserDev
+        ? 'Generate otomatis akun pengguna untuk seluruh 7 peran (Developer, Ketua RT, Sekretaris, Bendahara, Pengurus, Warga, dan Admin)?'
+        : 'Generate otomatis akun pengguna untuk seluruh peran kepengurusan RT (Ketua RT, Sekretaris, Bendahara, Pengurus, dan Warga)?',
       details: 'Akun dengan NIK yang sudah ada tidak akan diduplikasi.',
       variant: 'info',
       confirmText: 'Ya, Generate Akun',
@@ -121,7 +130,7 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
     });
 
     if (setuju) {
-      const dummyCreds = generateDummyCredentials();
+      const dummyCreds = generateDummyCredentials().filter(dc => isUserDev || dc.role !== 'developer');
       let addedCount = 0;
       dummyCreds.forEach(dc => {
         const exists = credentials.some(c => c.nik.toLowerCase() === dc.nik.toLowerCase());
@@ -136,6 +145,7 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
 
   // Buka Modal Edit
   const handleOpenEdit = (cred: UserCredential) => {
+    if (!isUserDev && cred.role === 'developer') return;
     setEditingCred(cred);
     setFormNik(cred.nik);
     setFormPassword(cred.password);
@@ -263,7 +273,7 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
               Matriks Hak Akses Peran & Pengguna
             </h1>
             <p className="text-xs sm:text-sm text-amber-200/80 max-w-2xl leading-relaxed">
-              Standar tata kelola wewenang berjenjang untuk Developer, Pimpinan RT, Sekretariat, Bendahara, Pengurus Seksi, dan Penduduk Warga.
+              Standar tata kelola wewenang berjenjang untuk Pimpinan RT, Sekretariat, Bendahara, Pengurus Seksi, dan Penduduk Warga.
             </p>
           </div>
 
@@ -290,7 +300,7 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Kelola Akun ({credentials.length})</span>
+              <span>Kelola Akun ({visibleCredentials.length})</span>
             </button>
 
             {isUserDev && (
@@ -316,7 +326,7 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
           {/* Kartu Ringkasan Peran */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Object.values(ROLE_DEFINITIONS)
-              .filter(r => r.role !== 'admin')
+              .filter(r => r.role !== 'admin' && r.role !== 'developer')
               .map(roleItem => (
                 <div
                   key={roleItem.role}
@@ -359,7 +369,6 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
                   <tr className="bg-stone-100/80 text-stone-700 font-bold border-b border-stone-200 uppercase tracking-wider text-[11px]">
                     <th className="py-3.5 px-4">Modul Sistem</th>
                     <th className="py-3.5 px-3">Kategori</th>
-                    <th className="py-3.5 px-3 text-rose-800">🛠️ Developer</th>
                     <th className="py-3.5 px-3 text-amber-900">👑 Ketua RT</th>
                     <th className="py-3.5 px-3 text-blue-900">📝 Sekretaris</th>
                     <th className="py-3.5 px-3 text-emerald-900">💰 Bendahara</th>
@@ -377,11 +386,6 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
                       <td className="py-3.5 px-3">
                         <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 text-[10px] font-semibold">
                           {row.kategori}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-3 font-semibold text-rose-700 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded bg-rose-50 border border-rose-200">
-                          {row.developer}
                         </span>
                       </td>
                       <td className="py-3.5 px-3 font-semibold text-amber-800 whitespace-nowrap">
@@ -440,14 +444,14 @@ export const MatriksPeranPengguna: React.FC<MatriksPeranPenggunaProps> = ({
                 onChange={e => setFilterRole(e.target.value)}
                 className="w-full sm:w-auto px-3 py-2 bg-stone-100 border-none rounded-xl text-xs text-stone-700 font-semibold focus:ring-2 focus:ring-amber-500 cursor-pointer"
               >
-                <option value="all">Semua Peran ({credentials.length})</option>
-                <option value="developer">Developer / Superadmin</option>
+                <option value="all">Semua Peran ({visibleCredentials.length})</option>
+                {isUserDev && <option value="developer">Developer / Superadmin</option>}
                 <option value="ketua_rt">Ketua RT</option>
                 <option value="sekretaris">Sekretaris</option>
                 <option value="bendahara">Bendahara</option>
                 <option value="pengurus">Pengurus Bidang</option>
                 <option value="warga">Warga</option>
-                <option value="admin">Administrator RT</option>
+                {isUserDev && <option value="admin">Administrator RT</option>}
               </select>
             </div>
 
