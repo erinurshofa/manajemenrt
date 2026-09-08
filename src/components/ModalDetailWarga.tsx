@@ -3,6 +3,7 @@ import { X, User, Home, Edit2, Phone, Calendar, MapPin, Briefcase, Heart, Award,
 import { Warga, KartuKeluargaData, UserSession } from '../types';
 import { formatTanggalIndo, hitungUsia } from '../utils/calculations';
 import { maskNik, maskNoKk, maskNoHp } from '../utils/security';
+import { canManageWarga } from '../utils/permissions';
 
 interface ModalDetailWargaProps {
   isOpen: boolean;
@@ -23,7 +24,8 @@ export const ModalDetailWarga: React.FC<ModalDetailWargaProps> = ({
   onPilihKk,
   currentUser,
 }) => {
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'pengurus';
+  const canManage = canManageWarga(currentUser?.role);
+  const isAdmin = canManage;
   if (!isOpen || !warga) return null;
 
   const usia = hitungUsia(warga.tanggalLahir);

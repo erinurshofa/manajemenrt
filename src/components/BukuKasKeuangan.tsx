@@ -5,6 +5,7 @@ import { KasSummaryCards } from './kas/KasSummaryCards';
 import { KasFilterBar } from './kas/KasFilterBar';
 import { KasTable } from './kas/KasTable';
 import { ModalFormKas } from './kas/ModalFormKas';
+import { canManageKas } from '../utils/permissions';
 
 interface BukuKasKeuanganProps {
   daftarKas: TransaksiKas[];
@@ -28,7 +29,8 @@ export const BukuKasKeuangan: React.FC<BukuKasKeuanganProps> = ({
   onHapusKas,
   currentUser,
 }) => {
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'pengurus';
+  const canManage = canManageKas(currentUser?.role);
+  const isAdmin = canManage;
   const [modalOpen, setModalOpen] = useState(false);
   const [previewBukti, setPreviewBukti] = useState<{ url: string; nama: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');

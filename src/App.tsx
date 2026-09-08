@@ -196,6 +196,7 @@ export default function App() {
     isSupabaseTablesMissing,
     supabaseErrorMessage,
     refreshSupabaseConnection,
+    isSyncing,
   } = useRtSync({
     daftarWarga,
     setDaftarWarga,
@@ -683,6 +684,7 @@ export default function App() {
                 onLihatDetail={warga => setDetailWarga(warga)}
                 onPilihKk={handlePilihKkFromWarga}
                 currentUser={effectiveUser}
+                isSyncing={isSyncing}
               />
             )}
 

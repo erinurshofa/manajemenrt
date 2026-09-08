@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { History, Plus, Calendar, AlertTriangle, UserMinus, Baby, LogIn, LogOut, Trash2 } from 'lucide-react';
 import { MutasiRecord, Warga, JenisMutasi, UserSession } from '../types';
 import { formatTanggalIndo } from '../utils/calculations';
+import { canManageMutasi } from '../utils/permissions';
 
 interface MutasiManagerProps {
   daftarMutasi: MutasiRecord[];
@@ -18,7 +19,8 @@ export const MutasiManager: React.FC<MutasiManagerProps> = ({
   onHapusMutasi,
   currentUser,
 }) => {
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'pengurus';
+  const canManage = canManageMutasi(currentUser?.role);
+  const isAdmin = canManage;
   const [showForm, setShowForm] = useState(false);
   const [jenisMutasi, setJenisMutasi] = useState<JenisMutasi>('Lahir');
   const [selectedWargaId, setSelectedWargaId] = useState('');

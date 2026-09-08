@@ -263,13 +263,13 @@ export const fetchAllFromSupabase = async (fallback: {
 
   try {
     const [
-      { data: profilRows },
-      { data: wargaRows },
-      { data: mutasiRows },
-      { data: kasRows },
-      { data: dokumenRows },
-      { data: pengurusRows },
-      { data: credRows },
+      profilRes,
+      wargaRes,
+      mutasiRes,
+      kasRes,
+      dokumenRes,
+      pengurusRes,
+      credRes,
     ] = await Promise.all([
       supabase.from('profil_rt').select('*').limit(1),
       supabase.from('warga').select('*').order('created_at', { ascending: false }),
@@ -279,6 +279,22 @@ export const fetchAllFromSupabase = async (fallback: {
       supabase.from('pengurus_rt').select('*'),
       supabase.from('user_credentials').select('*'),
     ]);
+
+    if (wargaRes.error) console.warn('[Supabase] Gagal ambil data warga:', wargaRes.error.message);
+    if (mutasiRes.error) console.warn('[Supabase] Gagal ambil data mutasi:', mutasiRes.error.message);
+    if (kasRes.error) console.warn('[Supabase] Gagal ambil data kas:', kasRes.error.message);
+    if (dokumenRes.error) console.warn('[Supabase] Gagal ambil data dokumen:', dokumenRes.error.message);
+    if (pengurusRes.error) console.warn('[Supabase] Gagal ambil data pengurus:', pengurusRes.error.message);
+    if (credRes.error) console.warn('[Supabase] Gagal ambil data user_credentials:', credRes.error.message);
+    if (profilRes.error) console.warn('[Supabase] Gagal ambil data profil_rt:', profilRes.error.message);
+
+    const profilRows = profilRes.data;
+    const wargaRows = wargaRes.data;
+    const mutasiRows = mutasiRes.data;
+    const kasRows = kasRes.data;
+    const dokumenRows = dokumenRes.data;
+    const pengurusRows = pengurusRes.data;
+    const credRows = credRes.data;
 
     return {
       profilRt: profilRows && profilRows.length > 0 ? mapDbToProfil(profilRows[0], fallback.profilRt) : fallback.profilRt,

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { PengurusRt, ProfilRt, Warga, UserSession } from '../types';
 import { useConfirm } from '../context/NotificationContext';
+import { canManagePengurus } from '../utils/permissions';
 
 interface StrukturPengurusProps {
   daftarPengurus: PengurusRt[];
@@ -37,7 +38,8 @@ export const StrukturPengurus: React.FC<StrukturPengurusProps> = ({
   onHapusPengurus,
   currentUser,
 }) => {
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'pengurus';
+  const canManage = canManagePengurus(currentUser?.role);
+  const isAdmin = canManage;
   const confirmDialog = useConfirm();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PengurusRt | null>(null);

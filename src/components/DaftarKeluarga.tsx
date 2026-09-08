@@ -3,6 +3,7 @@ import { Home, Users, UserPlus, Printer, Search, Copy, Check, ChevronDown, Chevr
 import { KartuKeluargaData, Warga, UserSession } from '../types';
 import { hitungUsia, formatTanggalIndo } from '../utils/calculations';
 import { maskNik, maskNoKk } from '../utils/security';
+import { canManageWarga } from '../utils/permissions';
 
 interface DaftarKeluargaProps {
   daftarKk: KartuKeluargaData[];
@@ -23,7 +24,9 @@ export const DaftarKeluarga: React.FC<DaftarKeluargaProps> = ({
   initialSelectedKk,
   currentUser,
 }) => {
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'pengurus';
+  // Blindspot KK Fix: Izinkan Ketua RT, Sekretaris, Developer, dan Admin mengelola kartu keluarga
+  const canManage = canManageWarga(currentUser?.role);
+  const isAdmin = canManage;
   const [searchTerm, setSearchTerm] = useState(initialSelectedKk || '');
   const [copiedKk, setCopiedKk] = useState<string | null>(null);
   const [expandedKk, setExpandedKk] = useState<Record<string, boolean>>(() => {

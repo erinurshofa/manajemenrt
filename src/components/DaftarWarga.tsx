@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Download, UserPlus, Eye, Edit2, Trash2, Home, CheckCircle2, AlertCircle, Users, Plus, ShieldCheck, Lock } from 'lucide-react';
+import { Search, Filter, Download, UserPlus, Eye, Edit2, Trash2, Home, CheckCircle2, AlertCircle, Users, Plus, ShieldCheck, Lock, Loader2 } from 'lucide-react';
 import { Warga, JenisKelamin, StatusKependudukan, UserSession } from '../types';
 import { hitungUsia, formatTanggalIndo, unduhCsv } from '../utils/calculations';
 import { maskNik, maskNoKk } from '../utils/security';
+import { canManageWarga } from '../utils/permissions';
 
 interface DaftarWargaProps {
   daftarWarga: Warga[];
@@ -12,6 +13,7 @@ interface DaftarWargaProps {
   onLihatDetail: (warga: Warga) => void;
   onPilihKk: (noKk: string) => void;
   currentUser?: UserSession | null;
+  isSyncing?: boolean;
 }
 
 export const DaftarWarga: React.FC<DaftarWargaProps> = ({
@@ -22,12 +24,16 @@ export const DaftarWarga: React.FC<DaftarWargaProps> = ({
   onLihatDetail,
   onPilihKk,
   currentUser,
+  isSyncing = false,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterJk, setFilterJk] = useState<string>('semua');
   const [filterStatus, setFilterStatus] = useState<string>('semua');
   const [filterHubungan, setFilterHubungan] = useState<string>('semua');
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'pengurus';
+
+  // Blindspot Warga Fix: Gunakan canManageWarga agar Ketua RT, Sekretaris, Developer, & Admin dapat mengelola buku induk warga
+  const canManage = canManageWarga(currentUser?.role);
+  const isAdmin = canManage;
 
   const filteredWarga = useMemo(() => {
     return daftarWarga.filter(w => {
@@ -171,28 +177,38 @@ export const DaftarWarga: React.FC<DaftarWargaProps> = ({
             {filteredWarga.length === 0 ? (
               <tr>
                 <td colSpan={9} className="py-14 text-center">
-                  <div className="max-w-md mx-auto p-6 rounded-2xl bg-amber-50/60 border border-amber-200 text-center">
-                    <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-amber-100/80 flex items-center justify-center text-amber-800 shadow-2xs">
-                      <Users className="w-6 h-6" />
+                  {isSyncing && daftarWarga.length === 0 ? (
+                    <div className="max-w-md mx-auto p-6 rounded-2xl bg-amber-50/60 border border-amber-200 text-center flex flex-col items-center justify-center">
+                      <Loader2 className="w-8 h-8 text-amber-700 animate-spin mb-3" />
+                      <p className="font-bold text-stone-900 text-sm">Menyinkronkan Data Warga dari Cloud...</p>
+                      <p className="text-xs text-stone-600 mt-1 leading-relaxed">
+                        Mohon tunggu sebentar, sistem sedang memuat basis data kependudukan dari server Supabase Cloud.
+                      </p>
                     </div>
-                    <p className="font-bold text-stone-900 text-sm">
-                      {daftarWarga.length === 0 ? 'Data Warga Gasem Raya RT 02 Masih Kosong' : 'Tidak Ada Data Warga yang Cocok'}
-                    </p>
-                    <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                      {daftarWarga.length === 0
-                        ? 'Data warga telah dikosongkan. Klik tombol "+ Tambah Warga" untuk mulai mendaftarkan warga baru Gasem Raya RT 02.'
-                        : 'Coba sesuaikan kata kunci pencarian atau filter status yang dipilih.'}
-                    </p>
-                    {isAdmin && daftarWarga.length === 0 && (
-                      <button
-                        onClick={onTambahWarga}
-                        className="mt-3.5 inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-700 to-amber-900 text-white rounded-lg text-xs font-semibold shadow-sm hover:from-amber-800 hover:to-amber-950 transition-all"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Tambah Warga Sekarang</span>
-                      </button>
-                    )}
-                  </div>
+                  ) : (
+                    <div className="max-w-md mx-auto p-6 rounded-2xl bg-amber-50/60 border border-amber-200 text-center">
+                      <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-amber-100/80 flex items-center justify-center text-amber-800 shadow-2xs">
+                        <Users className="w-6 h-6" />
+                      </div>
+                      <p className="font-bold text-stone-900 text-sm">
+                        {daftarWarga.length === 0 ? 'Data Warga Gasem Raya RT 02 Masih Kosong' : 'Tidak Ada Data Warga yang Cocok'}
+                      </p>
+                      <p className="text-xs text-stone-600 mt-1 leading-relaxed">
+                        {daftarWarga.length === 0
+                          ? 'Data warga telah dikosongkan. Klik tombol "+ Tambah Warga" untuk mulai mendaftarkan warga baru Gasem Raya RT 02.'
+                          : 'Coba sesuaikan kata kunci pencarian atau filter status yang dipilih.'}
+                      </p>
+                      {isAdmin && daftarWarga.length === 0 && (
+                        <button
+                          onClick={onTambahWarga}
+                          className="mt-3.5 inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-700 to-amber-900 text-white rounded-lg text-xs font-semibold shadow-sm hover:from-amber-800 hover:to-amber-950 transition-all"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Tambah Warga Sekarang</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </td>
               </tr>
             ) : (
@@ -336,28 +352,36 @@ export const DaftarWarga: React.FC<DaftarWargaProps> = ({
       {/* Mobile Card View (Optimized for thumb interaction on phones) */}
       <div className="md:hidden p-3 space-y-3 bg-slate-50/50">
         {filteredWarga.length === 0 ? (
-          <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center shadow-xs">
-            <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-amber-100/80 flex items-center justify-center text-amber-800">
-              <Users className="w-6 h-6" />
+          isSyncing && daftarWarga.length === 0 ? (
+            <div className="p-6 rounded-2xl bg-white border border-amber-200 text-center shadow-xs flex flex-col items-center justify-center">
+              <Loader2 className="w-8 h-8 text-amber-700 animate-spin mb-3" />
+              <p className="font-bold text-stone-900 text-sm">Menyinkronkan Data Cloud...</p>
+              <p className="text-xs text-stone-500 mt-1">Memuat data kependudukan dari database server.</p>
             </div>
-            <p className="font-bold text-stone-900 text-sm">
-              {daftarWarga.length === 0 ? 'Data Warga Masih Kosong' : 'Warga Tidak Ditemukan'}
-            </p>
-            <p className="text-xs text-stone-500 mt-1">
-              {daftarWarga.length === 0
-                ? 'Sentuh tombol + Tambah Warga untuk mendaftar.'
-                : 'Coba kata kunci atau filter lain.'}
-            </p>
-            {isAdmin && (
-              <button
-                onClick={onTambahWarga}
-                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Tambah Warga</span>
-              </button>
-            )}
-          </div>
+          ) : (
+            <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center shadow-xs">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-amber-100/80 flex items-center justify-center text-amber-800">
+                <Users className="w-6 h-6" />
+              </div>
+              <p className="font-bold text-stone-900 text-sm">
+                {daftarWarga.length === 0 ? 'Data Warga Masih Kosong' : 'Warga Tidak Ditemukan'}
+              </p>
+              <p className="text-xs text-stone-500 mt-1">
+                {daftarWarga.length === 0
+                  ? 'Sentuh tombol + Tambah Warga untuk mendaftar.'
+                  : 'Coba kata kunci atau filter lain.'}
+              </p>
+              {isAdmin && (
+                <button
+                  onClick={onTambahWarga}
+                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Tambah Warga</span>
+                </button>
+              )}
+            </div>
+          )
         ) : (
           filteredWarga.map((warga, index) => {
             const usia = hitungUsia(warga.tanggalLahir);

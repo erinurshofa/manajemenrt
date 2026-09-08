@@ -64,6 +64,7 @@ export function useRtSync({
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
   const [isSupabaseTablesMissing, setIsSupabaseTablesMissing] = useState(false);
   const [supabaseErrorMessage, setSupabaseErrorMessage] = useState<string | undefined>();
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // 1. Initial Load from IndexedDB
   useEffect(() => {
@@ -142,9 +143,10 @@ export function useRtSync({
     };
   }, [profilRt, daftarWarga, daftarMutasi, daftarKas, daftarDokumen, daftarPengurus, credentials]);
 
-  // 4. Supabase Connection & Cloud Sync
+  // 4. Supabase Connection & Cloud Sync (Bisa berjalan langsung saat DB lokal siap, tanpa terblokir sesi login)
   const refreshSupabaseConnection = useCallback(async () => {
-    if (!isLocalDbLoaded || !currentUser) return;
+    if (!isLocalDbLoaded) return;
+    setIsSyncing(true);
 
     try {
       const status = await checkSupabaseConnection();
@@ -217,19 +219,27 @@ export function useRtSync({
     } catch (err: any) {
       console.error('Error during Supabase connection check/sync:', err);
       setSupabaseErrorMessage(err?.message || 'Gagal tersambung ke Supabase');
+    } finally {
+      setIsSyncing(false);
     }
-  }, [isLocalDbLoaded, currentUser, setDaftarWarga, setDaftarMutasi, setDaftarKas, setDaftarDokumen, setDaftarPengurus, setProfilRt, setCredentials]);
+  }, [isLocalDbLoaded, setDaftarWarga, setDaftarMutasi, setDaftarKas, setDaftarDokumen, setDaftarPengurus, setProfilRt, setCredentials]);
 
+  // Jalankan sinkronisasi awal segera setelah IndexedDB selesai dimuat
+  useEffect(() => {
+    if (isLocalDbLoaded) {
+      refreshSupabaseConnection();
+    }
+  }, [isLocalDbLoaded, refreshSupabaseConnection]);
+
+  // Re-sync saat user login berhasil
   useEffect(() => {
     if (isLocalDbLoaded && currentUser) {
       refreshSupabaseConnection();
     }
-  }, [isLocalDbLoaded, currentUser, refreshSupabaseConnection]);
+  }, [currentUser, isLocalDbLoaded, refreshSupabaseConnection]);
 
-  // 5. Online/Offline & Realtime Subscription
+  // 5. Online/Offline & Realtime Subscription (Aktif langsung agar browser lain realtime sinkron)
   useEffect(() => {
-    if (!currentUser) return;
-
     const handleOnline = () => {
       setIsOnline(true);
       refreshSupabaseConnection();
@@ -249,11 +259,12 @@ export function useRtSync({
       window.removeEventListener('offline', handleOffline);
       unsubscribeRealtime();
     };
-  }, [currentUser, refreshSupabaseConnection]);
+  }, [refreshSupabaseConnection]);
 
   return {
     isLocalDbLoaded,
     isOnline,
+    isSyncing,
     isSupabaseConnected,
     setIsSupabaseConnected,
     isSupabaseTablesMissing,

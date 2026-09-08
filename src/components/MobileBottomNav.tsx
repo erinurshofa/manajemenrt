@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { TabId } from './Sidebar';
 import { ProfilRt, UserSession } from '../types';
+import { canManageWarga } from '../utils/permissions';
 
 interface MobileBottomNavProps {
   activeTab: TabId;
@@ -42,7 +43,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     warnaSidebar: '#27150c',
   };
 
-  const isAdminOrPengurus = currentUser?.role === 'admin' || currentUser?.role === 'pengurus';
+  const isAdminOrPengurus = Boolean(currentUser?.role && currentUser.role !== 'warga');
+  const canAddWarga = canManageWarga(currentUser?.role);
   const isSecondaryActive = ['dokumen', 'drive', 'pengurus', 'laporan', 'mutasi'].includes(activeTab);
 
   return (
@@ -100,18 +102,18 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         {/* 3. Center Floating Action Button (FAB) */}
         <div className="flex-1 flex flex-col items-center justify-center -mt-6">
           <button
-            onClick={isAdminOrPengurus ? onOpenAddWarga : onOpenAiModal}
+            onClick={canAddWarga ? onOpenAddWarga : onOpenAiModal}
             className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-amber-900 via-amber-800 to-amber-600 text-white shadow-lg shadow-amber-900/35 border-2 border-white flex items-center justify-center active:scale-90 transition-all cursor-pointer group"
-            title={isAdminOrPengurus ? 'Tambah Data Warga Baru' : 'Tanya Asisten AI'}
+            title={canAddWarga ? 'Tambah Data Warga Baru' : 'Tanya Asisten AI'}
           >
-            {isAdminOrPengurus ? (
+            {canAddWarga ? (
               <Plus className="w-6 h-6 stroke-[2.5] group-hover:rotate-90 transition-transform duration-200" />
             ) : (
               <Sparkles className="w-6 h-6 animate-pulse" />
             )}
           </button>
           <span className="text-[9px] font-bold text-amber-900 tracking-tight leading-none mt-1">
-            {isAdminOrPengurus ? '+ Warga' : 'Tanya AI'}
+            {canAddWarga ? '+ Warga' : 'Tanya AI'}
           </span>
         </div>
 

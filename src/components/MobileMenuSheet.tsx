@@ -56,7 +56,7 @@ export const MobileMenuSheet: React.FC<MobileMenuSheetProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const isAdminOrPengurus = currentUser?.role === 'admin' || currentUser?.role === 'pengurus';
+  const isAdminOrPengurus = Boolean(currentUser?.role && currentUser.role !== 'warga');
 
   const menuSections = [
     {
