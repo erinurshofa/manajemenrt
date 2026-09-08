@@ -385,6 +385,105 @@ export const seedInitialDataToSupabase = async (data: {
   }
 };
 
+/**
+ * Sinkronkan seluruh data lokal ke Supabase Cloud secara menyeluruh (batch upsert)
+ * Menjadikan data cloud sebagai Single Source of Truth yang identik di semua peramban & klien.
+ */
+export const syncAllLocalToSupabase = async (data: {
+  profilRt: ProfilRt;
+  daftarWarga: Warga[];
+  daftarMutasi: MutasiRecord[];
+  daftarKas: TransaksiKas[];
+  daftarDokumen: DokumenRt[];
+  daftarPengurus: PengurusRt[];
+  credentials: UserCredential[];
+}): Promise<{ success: boolean; message?: string }> => {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { success: false, message: 'Supabase belum dikonfigurasi' };
+  }
+
+  try {
+    // 1. Profil RT
+    await supabase.from('profil_rt').upsert(mapProfilToDb(data.profilRt));
+
+    // 2. Warga (chunked per 50 baris untuk efisiensi jaringan)
+    if (data.daftarWarga && data.daftarWarga.length > 0) {
+      for (let i = 0; i < data.daftarWarga.length; i += 50) {
+        const chunk = data.daftarWarga.slice(i, i + 50);
+        await supabase.from('warga').upsert(chunk.map(mapWargaToDb));
+      }
+    }
+
+    // 3. Mutasi
+    if (data.daftarMutasi && data.daftarMutasi.length > 0) {
+      for (let i = 0; i < data.daftarMutasi.length; i += 50) {
+        const chunk = data.daftarMutasi.slice(i, i + 50);
+        await supabase.from('mutasi').upsert(chunk.map(mapMutasiToDb));
+      }
+    }
+
+    // 4. Kas
+    if (data.daftarKas && data.daftarKas.length > 0) {
+      for (let i = 0; i < data.daftarKas.length; i += 50) {
+        const chunk = data.daftarKas.slice(i, i + 50);
+        await supabase.from('transaksi_kas').upsert(chunk.map(mapKasToDb));
+      }
+    }
+
+    // 5. Dokumen
+    if (data.daftarDokumen && data.daftarDokumen.length > 0) {
+      for (let i = 0; i < data.daftarDokumen.length; i += 20) {
+        const chunk = data.daftarDokumen.slice(i, i + 20);
+        await supabase.from('dokumen_rt').upsert(chunk.map(mapDokumenToDb));
+      }
+    }
+
+    // 6. Pengurus
+    if (data.daftarPengurus && data.daftarPengurus.length > 0) {
+      await supabase.from('pengurus_rt').upsert(data.daftarPengurus.map(mapPengurusToDb));
+    }
+
+    // 7. Kredensial
+    if (data.credentials && data.credentials.length > 0) {
+      await supabase.from('user_credentials').upsert(
+        data.credentials.map((c) => ({
+          nik: c.nik,
+          password: c.password,
+          nama: c.nama,
+          role: c.role,
+          jabatan: c.jabatan || null,
+        }))
+      );
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Gagal sinkronisasi batch ke Supabase:', err);
+    return { success: false, message: err?.message || 'Gagal sinkronisasi data ke cloud' };
+  }
+};
+
+/**
+ * Hapus seluruh data transaksi & kependudukan di Supabase (Hard Reset)
+ */
+export const clearAllSupabaseData = async (): Promise<{ success: boolean; message?: string }> => {
+  if (!isSupabaseConfigured() || !supabase) {
+    return { success: false, message: 'Supabase belum dikonfigurasi' };
+  }
+
+  try {
+    await supabase.from('mutasi').delete().neq('id', '____');
+    await supabase.from('transaksi_kas').delete().neq('id', '____');
+    await supabase.from('dokumen_rt').delete().neq('id', '____');
+    await supabase.from('pengurus_rt').delete().neq('id', '____');
+    await supabase.from('warga').delete().neq('id', '____');
+    return { success: true };
+  } catch (err: any) {
+    console.error('Gagal membersihkan data Supabase:', err);
+    return { success: false, message: err?.message || 'Gagal membersihkan database cloud' };
+  }
+};
+
 // ==========================================
 // ENTITY-SPECIFIC OPERATIONS (SYNC WITH OFFLINE QUEUE)
 // ==========================================

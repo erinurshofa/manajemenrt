@@ -14,6 +14,7 @@ import {
   Globe,
   Database,
   Terminal,
+  RefreshCw,
 } from 'lucide-react';
 import { ProfilRt, UserSession } from '../types';
 import { TabId } from './Sidebar';
@@ -37,6 +38,9 @@ interface TopHeaderProps {
   onOpenAiModal?: () => void;
   onOpenDevTools?: () => void;
   isDeveloperUser?: boolean;
+  isSyncing?: boolean;
+  lastSyncedAt?: Date | null;
+  onManualSync?: () => void;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -58,6 +62,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenAiModal,
   onOpenDevTools,
   isDeveloperUser = false,
+  isSyncing = false,
+  lastSyncedAt = null,
+  onManualSync,
 }) => {
   const theme = profilRt.themeConfig || {
     preset: 'batik-soga',
@@ -172,6 +179,36 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             </span>
           </button>
         )}
+        {/* Tombol Sinkronisasi Cloud Instan (Manual Sync SSOT) */}
+        {onManualSync && (
+          <button
+            id="btn-top-manual-sync"
+            onClick={onManualSync}
+            disabled={isSyncing}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs cursor-pointer border active:scale-95 ${
+              isSyncing
+                ? 'bg-amber-100 text-amber-900 border-amber-300 animate-pulse'
+                : isSupabaseConnected
+                ? 'bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border-emerald-500/40'
+                : 'bg-stone-800/60 hover:bg-stone-800 text-stone-300 border-stone-700'
+            }`}
+            title={
+              lastSyncedAt
+                ? `Tersinkronisasi Cloud: ${lastSyncedAt.toLocaleTimeString('id-ID')}. Klik untuk menyegarkan data dari Supabase sekarang.`
+                : 'Klik untuk menyinkronkan data dengan Supabase Cloud'
+            }
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 shrink-0 ${
+                isSyncing ? 'animate-spin text-amber-800' : isSupabaseConnected ? 'text-emerald-400' : 'text-stone-400'
+              }`}
+            />
+            <span className="hidden sm:inline">
+              {isSyncing ? 'Sinkron...' : 'Sinkron Cloud'}
+            </span>
+          </button>
+        )}
+
 
         {/* Bagikan Link Online Button */}
         {onOpenShareOnline && (
@@ -242,7 +279,19 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                   {currentUser.nama}
                 </p>
                 <p className="text-[9px] text-amber-800 font-semibold uppercase">
-                  {currentUser.role === 'admin' ? 'Admin RT' : currentUser.role === 'pengurus' ? 'Pengurus' : 'Warga'}
+                  {currentUser.role === 'developer'
+                    ? 'Developer'
+                    : currentUser.role === 'ketua_rt'
+                    ? 'Ketua RT'
+                    : currentUser.role === 'sekretaris'
+                    ? 'Sekretaris'
+                    : currentUser.role === 'bendahara'
+                    ? 'Bendahara'
+                    : currentUser.role === 'admin'
+                    ? 'Admin RT'
+                    : currentUser.role === 'pengurus'
+                    ? 'Pengurus'
+                    : 'Warga'}
                 </p>
               </div>
             </div>

@@ -16,6 +16,9 @@ interface LoginScreenProps {
   totalKk?: number;
   credentials?: UserCredential[];
   onTambahCredential?: (cred: UserCredential) => void;
+  isSupabaseConnected?: boolean;
+  isSyncing?: boolean;
+  onManualSync?: () => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
@@ -27,6 +30,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   totalKk = 9,
   credentials,
   onTambahCredential,
+  isSupabaseConnected = false,
+  isSyncing = false,
+  onManualSync,
 }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -249,6 +255,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         profilRt={profilRt}
         onOpenAndroidApk={onOpenAndroidApk}
         onScrollToLogin={scrollToLogin}
+        isSupabaseConnected={isSupabaseConnected}
+        isSyncing={isSyncing}
+        onManualSync={onManualSync}
       />
 
       {/* 2. HERO SECTION & LOGIN CARD AREA */}

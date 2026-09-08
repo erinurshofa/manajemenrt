@@ -15,7 +15,6 @@ import {
   seedInitialDataToSupabase,
   flushOfflineSyncQueue,
   subscribeToRealtimeChanges,
-  syncCredentialUpsert,
 } from '../services/supabaseService';
 import {
   loadAllLocalData,
@@ -65,8 +64,15 @@ export function useRtSync({
   const [isSupabaseTablesMissing, setIsSupabaseTablesMissing] = useState(false);
   const [supabaseErrorMessage, setSupabaseErrorMessage] = useState<string | undefined>();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
-  // 1. Initial Load from IndexedDB
+  // Kunci konkurensi agar sinkronisasi tidak tumpang tindih
+  const isSyncingRef = useRef(false);
+  const pendingSyncRef = useRef(false);
+  const initialSeedCheckedRef = useRef(false);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 1. Initial Load from IndexedDB (Pemuatan awal cepat agar offline-ready)
   useEffect(() => {
     loadAllLocalData()
       .then(local => {
@@ -86,12 +92,12 @@ export function useRtSync({
         setIsLocalDbLoaded(true);
       })
       .catch(err => {
-        console.warn('Gagal membaca IndexedDB:', err);
+        console.warn('Gagal membaca IndexedDB lokal:', err);
         setIsLocalDbLoaded(true);
       });
   }, [setDaftarWarga, setDaftarMutasi, setDaftarKas, setDaftarDokumen, setDaftarPengurus, setProfilRt, setCredentials]);
 
-  // 2. Auto-save to IndexedDB on local state change
+  // 2. Auto-save ke IndexedDB lokal sebagai cache offline cadangan
   useEffect(() => {
     if (isLocalDbLoaded) saveCollectionToIndexedDb('warga', daftarWarga);
   }, [daftarWarga, isLocalDbLoaded]);
@@ -120,7 +126,7 @@ export function useRtSync({
     if (isLocalDbLoaded) saveCollectionToIndexedDb('credentials', credentials);
   }, [credentials, isLocalDbLoaded]);
 
-  // 3. Keep latest data in ref for sync without triggering re-fetches
+  // 3. Keep latest data in ref for sync
   const currentDataRef = useRef({
     profilRt,
     daftarWarga,
@@ -143,9 +149,17 @@ export function useRtSync({
     };
   }, [profilRt, daftarWarga, daftarMutasi, daftarKas, daftarDokumen, daftarPengurus, credentials]);
 
-  // 4. Supabase Connection & Cloud Sync (Bisa berjalan langsung saat DB lokal siap, tanpa terblokir sesi login)
+  // 4. SUPABASE AS SINGLE SOURCE OF TRUTH (SSOT) SYNC ENGINE
   const refreshSupabaseConnection = useCallback(async () => {
     if (!isLocalDbLoaded) return;
+
+    // Cegah race condition jika fetch sedang berlangsung
+    if (isSyncingRef.current) {
+      pendingSyncRef.current = true;
+      return;
+    }
+
+    isSyncingRef.current = true;
     setIsSyncing(true);
 
     try {
@@ -155,19 +169,25 @@ export function useRtSync({
       setSupabaseErrorMessage(status.error);
 
       if (status.isConnected) {
+        // Kirim perubahan data offline yang belum terkirim
         await flushOfflineSyncQueue();
         const latest = currentDataRef.current;
 
-        await seedInitialDataToSupabase({
-          profilRt: latest.profilRt,
-          daftarWarga: latest.daftarWarga,
-          daftarMutasi: latest.daftarMutasi,
-          daftarKas: latest.daftarKas,
-          daftarDokumen: latest.daftarDokumen,
-          daftarPengurus: latest.daftarPengurus,
-          credentials: latest.credentials,
-        });
+        // Seeding awal hanya dievaluasi sekali saat inisialisasi perdana
+        if (!initialSeedCheckedRef.current) {
+          initialSeedCheckedRef.current = true;
+          await seedInitialDataToSupabase({
+            profilRt: latest.profilRt,
+            daftarWarga: latest.daftarWarga,
+            daftarMutasi: latest.daftarMutasi,
+            daftarKas: latest.daftarKas,
+            daftarDokumen: latest.daftarDokumen,
+            daftarPengurus: latest.daftarPengurus,
+            credentials: latest.credentials,
+          });
+        }
 
+        // Ambil data resmi dari Supabase Cloud (Single Source of Truth)
         const cloudData = await fetchAllFromSupabase({
           profilRt: latest.profilRt,
           daftarWarga: latest.daftarWarga,
@@ -179,6 +199,7 @@ export function useRtSync({
         });
 
         if (cloudData) {
+          // Ganti state lokal secara penuh dengan data Cloud (SSOT)
           if (Array.isArray(cloudData.daftarWarga)) {
             setDaftarWarga(cloudData.daftarWarga);
           }
@@ -194,37 +215,43 @@ export function useRtSync({
           if (Array.isArray(cloudData.daftarPengurus)) {
             setDaftarPengurus(cloudData.daftarPengurus);
           }
-          if (cloudData.profilRt) setProfilRt(cloudData.profilRt);
-          if (cloudData.credentials && cloudData.credentials.length > 0) {
-            setCredentials(prev => {
-              const cloudNiks = new Set(cloudData.credentials.map(c => c.nik.toLowerCase()));
-              const localPending = prev.filter(c => !cloudNiks.has(c.nik.toLowerCase()));
-              const combined = [...cloudData.credentials, ...localPending];
-              const combinedNiks = new Set(combined.map(c => c.nik.toLowerCase()));
-              const missingDefaults = INITIAL_CREDENTIALS.filter(c => !combinedNiks.has(c.nik.toLowerCase()));
-              const result = [...combined, ...missingDefaults];
-
-              if (missingDefaults.length > 0) {
-                missingDefaults.forEach(d => syncCredentialUpsert(d));
-              }
-
-              return result;
-            });
-          } else {
-            setCredentials(INITIAL_CREDENTIALS);
-            INITIAL_CREDENTIALS.forEach(d => syncCredentialUpsert(d));
+          if (cloudData.profilRt) {
+            setProfilRt(cloudData.profilRt);
           }
+          if (cloudData.credentials && cloudData.credentials.length > 0) {
+            // Gunakan daftar akun resmi dari Supabase tanpa membangkitkan akun yang sudah dihapus
+            setCredentials(cloudData.credentials);
+          }
+
+          setLastSyncedAt(new Date());
         }
       }
     } catch (err: any) {
-      console.error('Error during Supabase connection check/sync:', err);
-      setSupabaseErrorMessage(err?.message || 'Gagal tersambung ke Supabase');
+      console.error('Error saat sinkronisasi Supabase SSOT:', err);
+      setSupabaseErrorMessage(err?.message || 'Gagal tersambung ke Supabase Cloud');
     } finally {
       setIsSyncing(false);
+      isSyncingRef.current = false;
+
+      // Jika ada permintaan sinkronisasi tertunda selama proses berlangsung, jalankan kembali
+      if (pendingSyncRef.current) {
+        pendingSyncRef.current = false;
+        refreshSupabaseConnection();
+      }
     }
   }, [isLocalDbLoaded, setDaftarWarga, setDaftarMutasi, setDaftarKas, setDaftarDokumen, setDaftarPengurus, setProfilRt, setCredentials]);
 
-  // Jalankan sinkronisasi awal segera setelah IndexedDB selesai dimuat
+  // Debounced sync caller untuk menampung lonjakan event serentak
+  const triggerDebouncedSync = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      refreshSupabaseConnection();
+    }, 300);
+  }, [refreshSupabaseConnection]);
+
+  // Sinkronisasi awal segera setelah DB lokal siap
   useEffect(() => {
     if (isLocalDbLoaded) {
       refreshSupabaseConnection();
@@ -234,37 +261,63 @@ export function useRtSync({
   // Re-sync saat user login berhasil
   useEffect(() => {
     if (isLocalDbLoaded && currentUser) {
-      refreshSupabaseConnection();
+      triggerDebouncedSync();
     }
-  }, [currentUser, isLocalDbLoaded, refreshSupabaseConnection]);
+  }, [currentUser, isLocalDbLoaded, triggerDebouncedSync]);
 
-  // 5. Online/Offline & Realtime Subscription (Aktif langsung agar browser lain realtime sinkron)
+  // 5. EVENT LISTENERS: Realtime, Tab Visibility, Window Focus, Online/Offline, & Heartbeat Polling
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      refreshSupabaseConnection();
+      triggerDebouncedSync();
     };
     const handleOffline = () => setIsOnline(false);
 
+    // Klien/browser lain yang baru dibuka atau kembali ke tab aktif akan langsung sinkron
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        triggerDebouncedSync();
+      }
+    };
+
+    const handleWindowFocus = () => {
+      triggerDebouncedSync();
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
 
+    // Heartbeat Polling setiap 30 detik jika tab aktif dan online (fail-safe jika WebSocket drop)
+    const heartbeatInterval = setInterval(() => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        triggerDebouncedSync();
+      }
+    }, 30000);
+
+    // Supabase Realtime WebSocket Subscription
     const unsubscribeRealtime = subscribeToRealtimeChanges((table) => {
-      console.log(`[Realtime] Perubahan terdeteksi pada tabel: ${table}, memuat data terbaru...`);
-      refreshSupabaseConnection();
+      console.log(`[Realtime SSOT] Perubahan terdeteksi pada tabel: ${table}, menyinkronkan data...`);
+      triggerDebouncedSync();
     });
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
+      clearInterval(heartbeatInterval);
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       unsubscribeRealtime();
     };
-  }, [refreshSupabaseConnection]);
+  }, [triggerDebouncedSync]);
 
   return {
     isLocalDbLoaded,
     isOnline,
     isSyncing,
+    lastSyncedAt,
     isSupabaseConnected,
     setIsSupabaseConnected,
     isSupabaseTablesMissing,

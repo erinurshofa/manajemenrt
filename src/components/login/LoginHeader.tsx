@@ -7,12 +7,18 @@ interface LoginHeaderProps {
   profilRt: ProfilRt;
   onOpenAndroidApk?: () => void;
   onScrollToLogin: () => void;
+  isSupabaseConnected?: boolean;
+  isSyncing?: boolean;
+  onManualSync?: () => void;
 }
 
 export const LoginHeader: React.FC<LoginHeaderProps> = ({
   profilRt,
   onOpenAndroidApk,
   onScrollToLogin,
+  isSupabaseConnected = false,
+  isSyncing = false,
+  onManualSync,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-[#2b1911]/95 backdrop-blur-md border-b border-amber-900/60 shadow-md">
@@ -27,7 +33,7 @@ export const LoginHeader: React.FC<LoginHeaderProps> = ({
           />
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-extrabold text-white text-sm sm:text-base tracking-wide">
+              <span className="font-extrabold text-white text-sm sm:base tracking-wide">
                 {profilRt.namaAplikasi || 'GASEM RAYA'}
               </span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/40">
@@ -43,6 +49,27 @@ export const LoginHeader: React.FC<LoginHeaderProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Cloud Sync Status Pill */}
+          {onManualSync && (
+            <button
+              onClick={onManualSync}
+              disabled={isSyncing}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs cursor-pointer border active:scale-95 ${
+                isSyncing
+                  ? 'bg-amber-100 text-amber-900 border-amber-300 animate-pulse'
+                  : isSupabaseConnected
+                  ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-200 border-emerald-600/40'
+                  : 'bg-stone-900/80 hover:bg-stone-800 text-stone-300 border-stone-700'
+              }`}
+              title="Status sinkronisasi database cloud Supabase. Klik untuk menyegarkan data."
+            >
+              <span className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-500 animate-ping' : isSupabaseConnected ? 'bg-emerald-400' : 'bg-rose-500'}`} />
+              <span className="hidden sm:inline">
+                {isSyncing ? 'Sinkron...' : isSupabaseConnected ? 'Cloud Aktif' : 'Offline'}
+              </span>
+            </button>
+          )}
+
           {onOpenAndroidApk && (
             <button
               onClick={onOpenAndroidApk}

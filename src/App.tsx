@@ -197,6 +197,7 @@ export default function App() {
     supabaseErrorMessage,
     refreshSupabaseConnection,
     isSyncing,
+    lastSyncedAt,
   } = useRtSync({
     daftarWarga,
     setDaftarWarga,
@@ -277,20 +278,20 @@ export default function App() {
   };
 
   // Handler Save Theme & Logo & Profil
-  const handleSaveThemeAndLogo = (newTheme: ThemeConfig, newLogo: LogoConfig) => {
+  const handleSaveThemeAndLogo = async (newTheme: ThemeConfig, newLogo: LogoConfig) => {
     const updated = {
       ...profilRt,
       themeConfig: newTheme,
       logoConfig: newLogo,
     };
     setProfilRt(updated);
-    syncProfilRtUpsert(updated);
+    await syncProfilRtUpsert(updated);
     toast.success('Pengaturan tema dan logo berhasil disimpan!');
   };
 
-  const handleSaveProfil = (newProfil: ProfilRt) => {
+  const handleSaveProfil = async (newProfil: ProfilRt) => {
     setProfilRt(newProfil);
-    syncProfilRtUpsert(newProfil);
+    await syncProfilRtUpsert(newProfil);
     toast.success('Profil RT berhasil diperbarui!');
   };
 
@@ -391,12 +392,12 @@ export default function App() {
   };
 
   // Handlers Mutasi
-  const handleTambahMutasi = (
+  const handleTambahMutasi = async (
     mutasi: MutasiRecord,
     updateStatus?: { wargaId: string; status: 'Meninggal' | 'Pindah Keluar' }
   ) => {
     setDaftarMutasi(prev => [mutasi, ...prev]);
-    syncMutasiUpsert(mutasi);
+    await syncMutasiUpsert(mutasi);
 
     if (updateStatus) {
       setDaftarWarga(prev =>
@@ -431,15 +432,15 @@ export default function App() {
 
     if (setuju) {
       setDaftarMutasi(prev => prev.filter(m => m.id !== id));
-      syncMutasiDelete(id);
+      await syncMutasiDelete(id);
       toast.success('Catatan mutasi berhasil dihapus.');
     }
   };
 
   // Handlers Kas
-  const handleTambahKas = (tx: TransaksiKas) => {
+  const handleTambahKas = async (tx: TransaksiKas) => {
     setDaftarKas(prev => [tx, ...prev]);
-    syncKasUpsert(tx);
+    await syncKasUpsert(tx);
     toast.success('Transaksi kas berhasil dicatat.');
   };
 
@@ -457,21 +458,21 @@ export default function App() {
 
     if (setuju) {
       setDaftarKas(prev => prev.filter(k => k.id !== id));
-      syncKasDelete(id);
+      await syncKasDelete(id);
       toast.success('Transaksi kas berhasil dihapus.');
     }
   };
 
   // Handlers Dokumen
-  const handleTambahDokumen = (doc: DokumenRt) => {
+  const handleTambahDokumen = async (doc: DokumenRt) => {
     setDaftarDokumen(prev => [doc, ...prev]);
-    syncDokumenUpsert(doc);
+    await syncDokumenUpsert(doc);
     toast.success(`Dokumen "${doc.judul}" berhasil diarsipkan.`);
   };
 
-  const handleEditDokumen = (doc: DokumenRt) => {
+  const handleEditDokumen = async (doc: DokumenRt) => {
     setDaftarDokumen(prev => prev.map(d => (d.id === doc.id ? doc : d)));
-    syncDokumenUpsert(doc);
+    await syncDokumenUpsert(doc);
     toast.success(`Dokumen "${doc.judul}" berhasil diperbarui.`);
   };
 
@@ -489,21 +490,21 @@ export default function App() {
 
     if (setuju) {
       setDaftarDokumen(prev => prev.filter(d => d.id !== id));
-      syncDokumenDelete(id);
+      await syncDokumenDelete(id);
       toast.success('Berkas dokumen berhasil dihapus.');
     }
   };
 
   // Handlers Pengurus
-  const handleTambahPengurus = (p: PengurusRt) => {
+  const handleTambahPengurus = async (p: PengurusRt) => {
     setDaftarPengurus(prev => [...prev, p]);
-    syncPengurusUpsert(p);
+    await syncPengurusUpsert(p);
     toast.success(`Pengurus "${p.nama}" (${p.jabatan}) berhasil ditambahkan.`);
   };
 
-  const handleEditPengurus = (p: PengurusRt) => {
+  const handleEditPengurus = async (p: PengurusRt) => {
     setDaftarPengurus(prev => prev.map(item => (item.id === p.id ? p : item)));
-    syncPengurusUpsert(p);
+    await syncPengurusUpsert(p);
     toast.success(`Data pengurus "${p.nama}" berhasil diperbarui.`);
   };
 
@@ -521,27 +522,27 @@ export default function App() {
 
     if (setuju) {
       setDaftarPengurus(prev => prev.filter(item => item.id !== id));
-      syncPengurusDelete(id);
+      await syncPengurusDelete(id);
       toast.success('Data pengurus berhasil dihapus.');
     }
   };
 
   // Handlers Kredensial / Akun Pengguna (RBAC & Developer Management)
-  const handleTambahCredential = (cred: UserCredential) => {
+  const handleTambahCredential = async (cred: UserCredential) => {
     setCredentials(prev => [...prev.filter(c => c.nik !== cred.nik), cred]);
-    syncCredentialUpsert(cred);
+    await syncCredentialUpsert(cred);
     toast.success(`Akun pengguna "${cred.nama}" (${cred.role}) berhasil disimpan.`);
   };
 
-  const handleEditCredential = (cred: UserCredential) => {
+  const handleEditCredential = async (cred: UserCredential) => {
     setCredentials(prev => prev.map(c => (c.nik === cred.nik ? cred : c)));
-    syncCredentialUpsert(cred);
+    await syncCredentialUpsert(cred);
     toast.success(`Akun pengguna "${cred.nama}" berhasil diperbarui.`);
   };
 
-  const handleHapusCredential = (nik: string) => {
+  const handleHapusCredential = async (nik: string) => {
     setCredentials(prev => prev.filter(c => c.nik !== nik));
-    syncCredentialDelete(nik);
+    await syncCredentialDelete(nik);
     toast.success('Akun peran berhasil dihapus.');
   };
 
@@ -588,6 +589,9 @@ export default function App() {
           totalKk={daftarKk.length}
           credentials={credentials}
           onTambahCredential={handleTambahCredential}
+          isSupabaseConnected={isSupabaseConnected}
+          isSyncing={isSyncing}
+          onManualSync={refreshSupabaseConnection}
         />
         <AndroidApkModal
           isOpen={isAndroidApkModalOpen}
@@ -660,6 +664,9 @@ export default function App() {
             onOpenAiModal={() => setIsAiModalOpen(true)}
             onOpenDevTools={() => setIsDevToolsOpen(true)}
             isDeveloperUser={isDeveloper(effectiveUser?.role)}
+            isSyncing={isSyncing}
+            lastSyncedAt={lastSyncedAt}
+            onManualSync={refreshSupabaseConnection}
           />
 
           {/* Scrollable Main Content */}

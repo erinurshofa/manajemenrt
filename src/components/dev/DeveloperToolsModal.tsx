@@ -19,6 +19,7 @@ import {
   Info,
   Layers,
   FileCode,
+  Cloud,
 } from 'lucide-react';
 import {
   Warga,
@@ -49,7 +50,7 @@ import {
   INITIAL_CREDENTIALS,
   DEFAULT_PROFIL_RT,
 } from '../../data/initialData';
-import { syncCredentialUpsert } from '../../services/supabaseService';
+import { syncCredentialUpsert, syncAllLocalToSupabase, clearAllSupabaseData } from '../../services/supabaseService';
 
 interface DeveloperToolsModalProps {
   isOpen: boolean;
@@ -206,9 +207,19 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
           if (parsed.data.dokumen) setDaftarDokumen(parsed.data.dokumen);
           if (parsed.data.pengurus) setDaftarPengurus(parsed.data.pengurus);
           if (parsed.data.credentials) setCredentials(parsed.data.credentials);
-          if (parsed.meta?.profilRt) setProfilRt(parsed.meta.profilRt);
+          if (isSupabaseConnected) {
+            await syncAllLocalToSupabase({
+              profilRt: parsed.meta?.profilRt || profilRt,
+              daftarWarga: parsed.data.warga || [],
+              daftarMutasi: parsed.data.mutasi || [],
+              daftarKas: parsed.data.kas || [],
+              daftarDokumen: parsed.data.dokumen || [],
+              daftarPengurus: parsed.data.pengurus || [],
+              credentials: parsed.data.credentials || credentials,
+            });
+          }
 
-          showNotice('Database berhasil dipulihkan dari snapshot JSON!', 'success');
+          showNotice('Database berhasil dipulihkan & disinkronkan ke Cloud!', 'success');
         }
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : 'File tidak valid';
@@ -249,7 +260,59 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
         return [...prev, ...toAdd];
       });
 
-      showNotice(`Berhasil menambahkan ${dummyWarga.length} warga, ${dummyKas.length} kas, ${dummyDokumen.length} dokumen, ${dummyPengurus.length} pengurus, dan akun peran lengkap!`, 'success');
+      if (isSupabaseConnected) {
+        const fullWarga = [...dummyWarga, ...daftarWarga];
+        const fullKas = [...dummyKas, ...daftarKas];
+        const fullMutasi = [...dummyMutasi, ...daftarMutasi];
+        const fullDok = [...dummyDokumen, ...daftarDokumen];
+        const fullPengurus = [...dummyPengurus, ...daftarPengurus];
+        await syncAllLocalToSupabase({
+          profilRt,
+          daftarWarga: fullWarga,
+          daftarKas: fullKas,
+          daftarMutasi: fullMutasi,
+          daftarDokumen: fullDok,
+          daftarPengurus: fullPengurus,
+          credentials: [...credentials, ...dummyCreds],
+        });
+      }
+
+      showNotice(`Berhasil menambahkan data uji & disinkronkan ke Cloud!`, 'success');
+    }
+  };
+
+  // 4c. Force Push Local to Cloud SSOT
+  const handleForcePushCloud = async () => {
+    const setuju = await confirmDialog({
+      title: 'Unggah Seluruh Data ke Cloud (Force Push SSOT)',
+      message: 'Unggah seluruh data lokal saat ini ke Supabase Cloud? Seluruh browser lain akan langsung melihat data yang sama persis.',
+      variant: 'warning',
+      confirmText: 'Ya, Unggah ke Cloud',
+      cancelText: 'Batal',
+    });
+
+    if (setuju) {
+      setIsResyncing(true);
+      try {
+        const res = await syncAllLocalToSupabase({
+          profilRt,
+          daftarWarga,
+          daftarMutasi,
+          daftarKas,
+          daftarDokumen,
+          daftarPengurus,
+          credentials,
+        });
+        if (res.success) {
+          showNotice('Seluruh data lokal sukses diunggah ke Supabase Cloud!', 'success');
+        } else {
+          showNotice(`Gagal sinkronisasi cloud: ${res.message}`, 'error');
+        }
+      } catch (err: any) {
+        showNotice(`Gagal: ${err?.message}`, 'error');
+      } finally {
+        setIsResyncing(false);
+      }
     }
   };
 
@@ -286,7 +349,10 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
       setDaftarPengurus(INITIAL_PENGURUS);
       setCredentials(INITIAL_CREDENTIALS);
       setProfilRt(DEFAULT_PROFIL_RT);
-      showNotice('Data berhasil direset ke kondisi default pabrikan!', 'info');
+      if (isSupabaseConnected) {
+        await clearAllSupabaseData();
+      }
+      showNotice('Data berhasil direset di lokal & Cloud!', 'info');
     }
   };
 
@@ -507,15 +573,28 @@ export const DeveloperToolsModal: React.FC<DeveloperToolsModalProps> = ({
                     <Database className="w-4 h-4 text-amber-700" />
                     <span>Rincian Record IndexedDB / Cloud</span>
                   </h3>
-                  <button
-                    type="button"
-                    onClick={handleTriggerResync}
-                    disabled={isResyncing}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-stone-100 hover:bg-amber-100 text-stone-700 hover:text-amber-900 border border-stone-300 transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isResyncing ? 'animate-spin' : ''}`} />
-                    <span>{isResyncing ? 'Menyinkronkan...' : 'Paksa Resync'}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleForcePushCloud}
+                      disabled={isResyncing || !isSupabaseConnected}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 transition-colors cursor-pointer disabled:opacity-50"
+                      title="Unggah seluruh data lokal saat ini ke Supabase Cloud"
+                    >
+                      <Cloud className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Push ke Cloud</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleTriggerResync}
+                      disabled={isResyncing}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-stone-100 hover:bg-amber-100 text-stone-700 hover:text-amber-900 border border-stone-300 transition-colors cursor-pointer disabled:opacity-50"
+                      title="Ambil data terbaru dari Supabase Cloud"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isResyncing ? 'animate-spin' : ''}`} />
+                      <span>{isResyncing ? 'Menyinkronkan...' : 'Tarik dari Cloud'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center">
